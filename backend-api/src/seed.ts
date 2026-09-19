@@ -5,185 +5,185 @@ dotenv.config();
 import mongoose from "mongoose";
 import { connectDB } from "./config/db";
 import User, { type IUser } from "./models/User";
-import Policy from "./models/Policy";
-import Claim from "./models/Claim";
+import Project from "./models/Project";
+import Task from "./models/Task";
 
 async function seed(): Promise<void> {
   await connectDB();
 
   console.log("Clearing existing data...");
-  await Promise.all([User.deleteMany({}), Policy.deleteMany({}), Claim.deleteMany({})]);
+  await Promise.all([User.deleteMany({}), Project.deleteMany({}), Task.deleteMany({})]);
 
   console.log("Creating users...");
   const [admin, alice, bob] = await Promise.all([
     User.create({
       name: "Admin User",
-      email: "admin@policyclaims.com",
+      email: "admin@tasktracker.com",
       password: "Admin123!",
       role: "admin",
     }),
     User.create({
       name: "Alice Adjuster",
-      email: "alice@policyclaims.com",
+      email: "alice@tasktracker.com",
       password: "Password123!",
       role: "adjuster",
     }),
     User.create({
       name: "Bob Adjuster",
-      email: "bob@policyclaims.com",
+      email: "bob@tasktracker.com",
       password: "Password123!",
       role: "adjuster",
     }),
   ]);
 
-  console.log("Creating policies...");
-  const [policy1, policy2, policy3, policy4, policy5] = await Promise.all([
-    Policy.create({
-      policyNumber: "POL-1001",
-      holderName: "John Smith",
-      type: "auto",
-      premium: 850,
+  console.log("Creating projects...");
+  const [project1, project2, project3, project4, project5] = await Promise.all([
+    Project.create({
+      projectCode: "PRJ-1001",
+      name: "Customer Portal Refresh",
+      category: "web",
+      budgetHours: 450,
       status: "active",
-      effectiveDate: new Date("2025-01-01"),
-      expirationDate: new Date("2026-01-01"),
+      startDate: new Date("2026-01-01"),
+      targetDate: new Date("2026-06-01"),
       owner: alice._id,
     }),
-    Policy.create({
-      policyNumber: "POL-1002",
-      holderName: "Mary Johnson",
-      type: "home",
-      premium: 1200,
+    Project.create({
+      projectCode: "PRJ-1002",
+      name: "Mobile Onboarding",
+      category: "mobile",
+      budgetHours: 300,
       status: "active",
-      effectiveDate: new Date("2025-03-15"),
-      expirationDate: new Date("2026-03-15"),
+      startDate: new Date("2026-02-01"),
+      targetDate: new Date("2026-07-01"),
       owner: bob._id,
     }),
-    Policy.create({
-      policyNumber: "POL-1003",
-      holderName: "Robert Lee",
-      type: "life",
-      premium: 300,
-      status: "active",
-      effectiveDate: new Date("2024-06-01"),
-      expirationDate: new Date("2034-06-01"),
+    Project.create({
+      projectCode: "PRJ-1003",
+      name: "Analytics Pipeline",
+      category: "data",
+      budgetHours: 520,
+      status: "on-hold",
+      startDate: new Date("2026-01-15"),
+      targetDate: new Date("2026-09-01"),
       owner: alice._id,
     }),
-    Policy.create({
-      policyNumber: "POL-1004",
-      holderName: "Susan Clark",
-      type: "auto",
-      premium: 600,
-      status: "expired",
-      effectiveDate: new Date("2023-01-01"),
-      expirationDate: new Date("2024-01-01"),
+    Project.create({
+      projectCode: "PRJ-1004",
+      name: "Design System Rollout",
+      category: "web",
+      budgetHours: 220,
+      status: "completed",
+      startDate: new Date("2025-08-01"),
+      targetDate: new Date("2026-01-15"),
       owner: bob._id,
     }),
-    Policy.create({
-      policyNumber: "POL-1005",
-      holderName: "David Kim",
-      type: "home",
-      premium: 950,
-      status: "cancelled",
-      effectiveDate: new Date("2024-09-01"),
-      expirationDate: new Date("2025-09-01"),
+    Project.create({
+      projectCode: "PRJ-1005",
+      name: "Release Automation",
+      category: "data",
+      budgetHours: 180,
+      status: "active",
+      startDate: new Date("2026-03-01"),
+      targetDate: new Date("2026-06-30"),
       owner: alice._id,
     }),
   ]);
 
-  console.log("Creating claims...");
+  console.log("Creating tasks...");
 
-  // Created sequentially: the Claim model auto-generates claimNumber in a
+  // Created sequentially: the Task model auto-generates taskNumber in a
   // pre("save") hook based on countDocuments(), so concurrent creates would race.
-  const claim1 = await Claim.create({
-    policy: policy1._id,
-    description: "Rear-end collision on I-95",
-    incidentDate: new Date("2026-02-01"),
-    amount: 3200,
-    status: "submitted",
+  const task1 = await Task.create({
+    project: project1._id,
+    title: "Implement account settings UI",
+    dueDate: new Date("2026-04-10"),
+    estimateHours: 28,
+    status: "todo",
     assignedTo: alice._id,
   });
 
-  const claim2 = await Claim.create({
-    policy: policy2._id,
-    description: "Kitchen fire damage",
-    incidentDate: new Date("2026-01-20"),
-    amount: 15000,
-    status: "under-review",
+  const task2 = await Task.create({
+    project: project2._id,
+    title: "Build email verification flow",
+    dueDate: new Date("2026-04-01"),
+    estimateHours: 36,
+    status: "in-progress",
     assignedTo: bob._id,
   });
-  claim2.notes.push({
+  task2.notes.push({
     author: bob._id,
-    text: "Requested contractor estimate for smoke and structural damage.",
-    createdAt: new Date("2026-01-22"),
+    text: "Waiting on API contract finalization from backend.",
+    createdAt: new Date("2026-03-15"),
   });
-  await claim2.save();
+  await task2.save();
 
-  const claim3 = await Claim.create({
-    policy: policy1._id,
-    description: "Windshield crack from road debris",
-    incidentDate: new Date("2026-02-10"),
-    amount: 450,
-    status: "approved",
+  const task3 = await Task.create({
+    project: project3._id,
+    title: "Define warehouse schema migrations",
+    dueDate: new Date("2026-05-05"),
+    estimateHours: 42,
+    status: "blocked",
     assignedTo: alice._id,
   });
-  claim3.notes.push({
+  task3.notes.push({
     author: admin._id,
-    text: "Reviewed photos and repair quote, approved for payout.",
-    createdAt: new Date("2026-02-12"),
+    text: "Blocked pending infrastructure budget approval.",
+    createdAt: new Date("2026-03-20"),
   });
-  await claim3.save();
+  await task3.save();
 
-  const claim4 = await Claim.create({
-    policy: policy4._id,
-    description: "Side collision in parking lot",
-    incidentDate: new Date("2023-11-05"),
-    amount: 2100,
-    status: "denied",
+  const task4 = await Task.create({
+    project: project4._id,
+    title: "Publish component migration guide",
+    dueDate: new Date("2026-01-05"),
+    estimateHours: 14,
+    status: "done",
     assignedTo: bob._id,
   });
-  claim4.notes.push({
+  task4.notes.push({
     author: bob._id,
-    text: "Incident date falls after the policy's expiration date; claim denied.",
-    createdAt: new Date("2023-11-10"),
+    text: "Guide shipped and shared with all product squads.",
+    createdAt: new Date("2026-01-04"),
   });
-  await claim4.save();
+  await task4.save();
 
-  const claim5 = await Claim.create({
-    policy: policy3._id,
-    description: "Beneficiary claim filed after policyholder's passing",
-    incidentDate: new Date("2025-12-01"),
-    amount: 50000,
-    status: "closed",
+  const task5 = await Task.create({
+    project: project5._id,
+    title: "Set up CI release tagging",
+    dueDate: new Date("2026-04-20"),
+    estimateHours: 20,
+    status: "in-progress",
     assignedTo: alice._id,
   });
-  claim5.notes.push(
+  task5.notes.push(
     {
       author: alice._id,
-      text: "Verified beneficiary documentation and death certificate.",
-      createdAt: new Date("2025-12-05"),
+      text: "Initial pipeline drafted and tested in staging.",
+      createdAt: new Date("2026-03-18"),
     },
     {
       author: admin._id,
-      text: "Payout processed and claim closed.",
-      createdAt: new Date("2025-12-15"),
+      text: "Needs rollback docs before production rollout.",
+      createdAt: new Date("2026-03-21"),
     },
   );
-  await claim5.save();
+  await task5.save();
 
-  const claim6 = await Claim.create({
-    policy: policy5._id,
-    description: "Water damage from burst pipe",
-    incidentDate: new Date("2026-01-05"),
-    amount: 7800,
-    status: "submitted",
+  const task6 = await Task.create({
+    project: project2._id,
+    title: "Finalize mobile launch checklist",
+    dueDate: new Date("2026-05-15"),
+    estimateHours: 16,
+    status: "todo",
     assignedTo: bob._id,
   });
 
   const users: IUser[] = [admin, alice, bob];
-  console.log(`Seeded ${users.length} users, 5 policies, 6 claims.`);
+  console.log(`Seeded ${users.length} users, 5 projects, 6 tasks.`);
   console.log(
-    "Claim numbers:",
-    [claim1, claim2, claim3, claim4, claim5, claim6].map((c) => c.claimNumber).join(", "),
+    "Task numbers:",
+    [task1, task2, task3, task4, task5, task6].map((task) => task.taskNumber).join(", "),
   );
 
   await mongoose.disconnect();
