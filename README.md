@@ -167,11 +167,14 @@ docker compose up -d --build
 
 | Service | URL |
 |---|---|
-| Client (React app) | http://localhost:4000 |
-| API | http://localhost:3000 |
+| Landing page | http://localhost:3000 |
+| Client (React app) | http://localhost:3000/app |
+| API | http://localhost:4000 |
 | MongoDB | localhost:27017 |
 
-The client container's nginx serves the built SPA and proxies `/api/*` to the `api` service, so the app works end-to-end at `http://localhost:4000` with no other setup. Set `JWT_SECRET` in your shell environment before starting if you don't want the insecure default (`dev-secret-change-me`).
+The client container's nginx serves a static landing page at `/`, the React SPA at `/app`, and proxies `/api/*` to the `api` service, so the app works end-to-end at `http://localhost:3000` with no other setup.
+
+If `docker compose up` fails with an "address already in use" error (commonly `27017`, `3000`, or `4000`), either stop the local service using that port or remap only the host side in `docker-compose.yml` (for example `"27018:27017"` for MongoDB).
 
 ### Option 2: `docker-compose.prod.yml` — HTTPS via a self-signed cert
 

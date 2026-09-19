@@ -19,6 +19,8 @@ services:
 
   client:
     build: ./frontend-client
+    environment:
+      API_UPSTREAM: api:3000
     ports:
       - "8443:443"
       - "8080:80"

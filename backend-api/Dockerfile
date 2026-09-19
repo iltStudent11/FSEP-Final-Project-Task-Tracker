@@ -3,7 +3,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1: builder — install all dependencies and compile TypeScript to dist/
 # ---------------------------------------------------------------------------
-FROM node:22-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -18,10 +18,10 @@ RUN npm run build
 # ---------------------------------------------------------------------------
 # Stage 2: runtime — only compiled JS + production dependencies
 # ---------------------------------------------------------------------------
-FROM node:22-alpine AS runtime
+FROM node:20-alpine AS runtime
 
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=4000
 
 WORKDIR /app
 
@@ -32,6 +32,6 @@ COPY --from=builder /app/dist ./dist
 
 USER node
 
-EXPOSE 3000
+EXPOSE 4000
 
 CMD ["node", "dist/server.js"]
