@@ -17,6 +17,7 @@ router.get(
     query("status").optional().isIn(TASK_STATUSES).withMessage("Invalid task status"),
     query("project").optional().isMongoId().withMessage("Invalid project id"),
     query("assignedTo").optional().isMongoId().withMessage("Invalid assignedTo id"),
+    query("completedBy").optional().isMongoId().withMessage("Invalid completedBy id"),
     query("search").optional().isString(),
     query("page").optional().isInt({ min: 1 }).withMessage("page must be a positive integer"),
     query("limit")
@@ -25,7 +26,7 @@ router.get(
       .withMessage("limit must be between 1 and 100"),
   ]),
   async (req: Request, res: Response) => {
-    const { status, project, assignedTo, search } = req.query as Record<
+    const { status, project, assignedTo, completedBy, search } = req.query as Record<
       string,
       string | undefined
     >;
@@ -36,6 +37,7 @@ router.get(
     if (status) filter.status = status as TaskStatus;
     if (project) filter.project = project;
     if (assignedTo) filter.assignedTo = assignedTo;
+    if (completedBy) filter.completedBy = completedBy;
     if (search) {
       const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
       filter.$or = [{ taskNumber: searchRegex }, { title: searchRegex }];
@@ -99,7 +101,8 @@ router.get(
   async (req: Request, res: Response) => {
     const task = await Task.findById(req.params.id)
       .populate("project")
-      .populate("assignedTo", "-password");
+      .populate("assignedTo", "-password")
+      .populate("completedBy", "-password");
 
     if (!task) {
       res.status(404).json({ message: "Task not found" });
@@ -115,21 +118,44 @@ router.post(
   validate([
     body("project").isMongoId().withMessage("A valid project id is required"),
     body("title").trim().notEmpty().withMessage("Title is required"),
+    body("description").optional().isString().withMessage("Description must be a string"),
     body("dueDate").isISO8601().withMessage("Due date must be a valid date"),
+    body("status").optional().isIn(TASK_STATUSES).withMessage("Invalid task status"),
+    body("assignedTo").optional().isMongoId().withMessage("Invalid assignedTo id"),
+    body("completedBy").optional().isMongoId().withMessage("Invalid completedBy id"),
     body("estimateHours")
       .optional()
       .isFloat({ min: 0 })
       .withMessage("Estimate hours must be a non-negative number"),
   ]),
   async (req: Request, res: Response) => {
-    const { project, title, dueDate, estimateHours } = req.body;
+    const {
+      project,
+      title,
+      description,
+      dueDate,
+      estimateHours,
+      status = "todo",
+      assignedTo,
+      completedBy,
+    } = req.body;
+
+    if (status === "done" && (!assignedTo || !completedBy)) {
+      res.status(400).json({
+        message: "Both assignedTo and completedBy are required when status is done",
+      });
+      return;
+    }
 
     const task = await Task.create({
       project,
       title,
+      description,
       dueDate,
       estimateHours,
-      assignedTo: req.user!._id,
+      status,
+      assignedTo,
+      completedBy,
     });
 
     res.status(201).json({ task });
@@ -142,6 +168,7 @@ router.put(
     param("id").isMongoId().withMessage("Invalid task id"),
     body("project").optional().isMongoId().withMessage("Invalid project id"),
     body("title").optional().trim().notEmpty().withMessage("Title cannot be empty"),
+    body("description").optional().isString().withMessage("Description must be a string"),
     body("dueDate").optional().isISO8601().withMessage("Due date must be a valid date"),
     body("estimateHours")
       .optional()
@@ -149,20 +176,51 @@ router.put(
       .withMessage("Estimate hours must be a non-negative number"),
     body("status").optional().isIn(TASK_STATUSES).withMessage("Invalid task status"),
     body("assignedTo").optional().isMongoId().withMessage("Invalid assignedTo id"),
+    body("completedBy").optional().isMongoId().withMessage("Invalid completedBy id"),
   ]),
   async (req: Request, res: Response) => {
-    const { project, title, dueDate, estimateHours, status, assignedTo } = req.body;
-
-    const task = await Task.findByIdAndUpdate(
-      req.params.id,
-      { project, title, dueDate, estimateHours, status, assignedTo },
-      { new: true, runValidators: true },
-    );
+    const task = await Task.findById(req.params.id);
 
     if (!task) {
       res.status(404).json({ message: "Task not found" });
       return;
     }
+
+    if (task.status === "done" && ("assignedTo" in req.body || "completedBy" in req.body)) {
+      const currentAssignedTo = task.assignedTo?.toString() ?? "";
+      const currentCompletedBy = task.completedBy?.toString() ?? "";
+      const requestedAssignedTo = req.body.assignedTo ? String(req.body.assignedTo) : "";
+      const requestedCompletedBy = req.body.completedBy ? String(req.body.completedBy) : "";
+
+      const assignedToChanged = "assignedTo" in req.body && requestedAssignedTo !== currentAssignedTo;
+      const completedByChanged =
+        "completedBy" in req.body && requestedCompletedBy !== currentCompletedBy;
+
+      if (assignedToChanged || completedByChanged) {
+        res.status(400).json({
+          message: "assignedTo and completedBy are locked once a task is marked done",
+        });
+        return;
+      }
+    }
+
+    if ("project" in req.body) task.project = req.body.project;
+    if ("title" in req.body) task.title = req.body.title;
+    if ("description" in req.body) task.description = req.body.description;
+    if ("dueDate" in req.body) task.dueDate = req.body.dueDate;
+    if ("estimateHours" in req.body) task.estimateHours = req.body.estimateHours;
+    if ("status" in req.body) task.status = req.body.status;
+    if ("assignedTo" in req.body) task.assignedTo = req.body.assignedTo || undefined;
+    if ("completedBy" in req.body) task.completedBy = req.body.completedBy || undefined;
+
+    if (task.status === "done" && (!task.assignedTo || !task.completedBy)) {
+      res.status(400).json({
+        message: "Both assignedTo and completedBy are required when status is done",
+      });
+      return;
+    }
+
+    await task.save();
 
     res.status(200).json({ task });
   },

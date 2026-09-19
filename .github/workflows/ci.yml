@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend-api/**"
+      - "frontend-client/react-ts/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "backend-api/**"
+      - "frontend-client/react-ts/**"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+jobs:
+  backend-tests:
+    name: Backend typecheck and tests
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: backend-api
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend-api/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run full backend tests
+        env:
+          JWT_SECRET: ci-test-secret
+          MONGODB_URI_TEST: mongodb://127.0.0.1:27017/task-tracker-test
+        run: npm test
+
+      - name: Run integration tests explicitly
+        env:
+          JWT_SECRET: ci-test-secret
+          MONGODB_URI_TEST: mongodb://127.0.0.1:27017/task-tracker-test
+        run: npm run test:integration
+
+  frontend-tests:
+    name: Frontend lint, build, and tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend-client/react-ts
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend-client/react-ts/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test

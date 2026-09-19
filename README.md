@@ -2,6 +2,15 @@
 
 A Project Task Tracker — a line-of-business application for teams to manage projects, tasks, and delivery progress.
 
+[![CI](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/ci.yml/badge.svg)](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/ci.yml)
+[![Docs](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/pages.yml/badge.svg)](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/pages.yml)
+[![Actions](https://img.shields.io/badge/Actions-Dashboard-2088FF?logo=githubactions&logoColor=white)](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions)
+
+## Build Status
+
+- **CI**: Runs backend type-checking and tests (including integration tests) plus frontend lint, build, and test checks on pushes and pull requests. [View run history](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/ci.yml).
+- **Docs**: Builds and deploys documentation from `docs/` to GitHub Pages when docs-related changes are pushed to `main`. [View run history](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/pages.yml).
+
 <!-- PAGES-LINK:START -->
 📖 **Documentation site** — architecture & design docs, published from `docs/` via GitHub Pages.
 <!-- PAGES-LINK:END -->
@@ -59,10 +68,10 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit togeth
    | Variable       | Description                                                                |
    | -------------- | --------------------------------------------------------------------------- |
    | `PORT`         | Port the API server listens on (defaults to 5000 if unset)                |
-   | `MONGODB_URI`  | MongoDB connection string, e.g. `mongodb://127.0.0.1:27017/policy-claims` |
+   | `MONGODB_URI`  | MongoDB connection string, e.g. `mongodb://127.0.0.1:27017/task-tracker` |
    | `JWT_SECRET`   | Secret used to sign and verify JWTs                                        |
 
-3. (Optional) Seed the database with sample users, policies, and claims:
+3. (Optional) Seed the database with sample users, projects, and tasks:
 
    ```bash
    npm run seed
@@ -70,18 +79,17 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit togeth
 
    (or, from the repo root: `make seed`)
 
-   This clears existing `User`/`Policy`/`Claim` data and inserts:
-   - 3 users — 1 admin (`admin@policyclaims.com`), 2 adjusters (`alice@policyclaims.com`, `bob@policyclaims.com`), password `Admin123!` / `Password123!` respectively
-   - 5 policies across auto/home/life types and active/expired/cancelled statuses
-   - 6 claims spread across every status, several with notes
+      This clears existing `User`/`Project`/`Task` data and inserts:
+      - 3 users — 1 admin (`admin@tasktracker.com`), 2 adjusters (`alice@tasktracker.com`, `bob@tasktracker.com`), password `Admin123!` / `Password123!` respectively
+      - 3 projects across `web`, `mobile`, and `data` categories (mix of `active` and `on-hold` statuses)
+      - 15 tasks across every task status, several with notes
 
    ```mermaid
-   pie showData title Seeded claims by status
-       "submitted" : 2
-       "under-review" : 1
-       "approved" : 1
-       "denied" : 1
-       "closed" : 1
+      pie showData title Seeded tasks by status
+         "todo" : 5
+         "in-progress" : 4
+         "blocked" : 3
+         "done" : 3
    ```
 
 4. Start the dev server:
@@ -113,19 +121,19 @@ All routes are mounted under `/api`. Every route except `/api/health` and `/api/
 | POST | `/api/auth/register` | Create a user account (does not return a token — log in separately) |
 | POST | `/api/auth/login` | Authenticate, returns a JWT and its expiry timestamp |
 | GET | `/api/auth/me` | Return the authenticated user's profile |
-| GET | `/api/policies` | List policies (filter by `type`, `status`, `search`; paginated) |
-| GET | `/api/policies/:id` | Get a single policy (owner populated) |
-| POST | `/api/policies` | Create a policy |
-| PUT | `/api/policies/:id` | Update a policy |
-| DELETE | `/api/policies/:id` | Delete a policy |
-| GET | `/api/claims` | List claims (filter by `status`, `policy`, `assignedTo`, `search`; paginated) |
-| GET | `/api/claims/stats` | Aggregated claim statistics |
-| GET | `/api/claims/:id` | Get a single claim (policy + assignee populated) |
-| POST | `/api/claims` | Create a claim (auto-assigned to the requesting user) |
-| PUT | `/api/claims/:id` | Update a claim |
-| POST | `/api/claims/:id/notes` | Add a note to a claim |
-| DELETE | `/api/claims/:id` | Delete a claim |
-| GET | `/api/dashboard` | Aggregated totals across claims, policies, and users |
+| GET | `/api/projects` | List projects (filter by `category`, `status`, `search`; paginated) |
+| GET | `/api/projects/:id` | Get a single project (owner populated) |
+| POST | `/api/projects` | Create a project |
+| PUT | `/api/projects/:id` | Update a project |
+| DELETE | `/api/projects/:id` | Delete a project |
+| GET | `/api/tasks` | List tasks (filter by `status`, `project`, `assignedTo`, `search`; paginated) |
+| GET | `/api/tasks/stats` | Aggregated task statistics |
+| GET | `/api/tasks/:id` | Get a single task (project + assignee populated) |
+| POST | `/api/tasks` | Create a task (auto-assigned to the requesting user) |
+| PUT | `/api/tasks/:id` | Update a task |
+| POST | `/api/tasks/:id/notes` | Add a note to a task |
+| DELETE | `/api/tasks/:id` | Delete a task |
+| GET | `/api/dashboard` | Aggregated totals across tasks, projects, and users |
 
 ## Testing
 
@@ -133,7 +141,7 @@ All routes are mounted under `/api`. Every route except `/api/health` and `/api/
 npm test
 ```
 
-The suite includes pure unit tests (models validation, middleware, utilities) and DB-backed tests that run against a dedicated `policy-claims-test` MongoDB database — a local MongoDB instance must be reachable to run the full suite. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#testing) for details.
+The suite includes pure unit tests (models validation, middleware, utilities) and DB-backed tests that run against a dedicated test MongoDB database (default: `task-tracker-test`) — a local MongoDB instance must be reachable to run the full suite. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#testing) for details.
 
 ## Frontend
 
@@ -220,7 +228,7 @@ kubectl create secret generic policy-claims-secrets \
   --from-literal=PORT=3000 \
   --from-literal=NODE_ENV=production \
   --from-literal=JWT_SECRET="$(grep -oP '(?<=^JWT_SECRET=).*' backend-api/.env | tr -d '"')" \
-  --from-literal=MONGODB_URI="mongodb://mongo.policy-claims.svc.cluster.local:27017/policy-claims" \
+   --from-literal=MONGODB_URI="mongodb://mongo.policy-claims.svc.cluster.local:27017/task-tracker" \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 

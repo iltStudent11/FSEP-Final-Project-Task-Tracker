@@ -58,4 +58,9 @@ router.get("/me", authenticate, (req: Request, res: Response) => {
   res.status(200).json({ user: req.user });
 });
 
+router.get("/users", authenticate, async (_req: Request, res: Response) => {
+  const users = await User.find().sort({ createdAt: 1 });
+  res.status(200).json({ users });
+});
+
 export default router;

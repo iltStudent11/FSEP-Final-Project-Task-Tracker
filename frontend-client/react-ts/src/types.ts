@@ -59,11 +59,13 @@ export interface Task {
   /** A plain id on list responses; a populated Project on GET /tasks/:id and in dashboard.recentTasks. */
   project: ObjectId | Project;
   title: string;
+  description?: string;
   dueDate: string;
   estimateHours?: number;
   status: TaskStatus;
   /** A plain id on list responses; a populated User on GET /tasks/:id and in dashboard.recentTasks. */
-  assignedTo: ObjectId | User;
+  assignedTo?: ObjectId | User;
+  completedBy?: ObjectId | User;
   notes: TaskNote[];
   createdAt: string;
   updatedAt: string;
@@ -127,6 +129,10 @@ export interface LoginResponse {
 
 export interface MeResponse {
   user: User;
+}
+
+export interface UsersResponse {
+  users: User[];
 }
 
 // ---------------------------------------------------------------------------

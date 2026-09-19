@@ -1,9 +1,9 @@
-import { useEffect, useState, type SubmitEvent } from "react";
+import { Fragment, useEffect, useState, type SubmitEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../api";
 import { getErrorMessage } from "../errorMessage";
-import StatusBadge from "../StatusBadge";
-import { TASK_STATUSES, TASK_STATUS_LABELS, TASK_STATUS_TONE } from "../claimStatus";
-import type { PaginatedTasks, Project, Task, TaskStatus } from "../types";
+import { TASK_STATUSES, TASK_STATUS_LABELS } from "../claimStatus";
+import type { PaginatedTasks, Project, Task, TaskStatus, User, UsersResponse } from "../types";
 
 const numberFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
@@ -17,17 +17,25 @@ function projectLabel(project: Task["project"], projectsById: Map<string, Projec
 }
 
 export default function Tasks() {
+  const [searchParams] = useSearchParams();
+  const searchFromUrl = searchParams.get("search") ?? "";
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [pagination, setPagination] = useState<PaginatedTasks["pagination"] | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [status, setStatus] = useState<TaskStatus | "">("");
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [search, setSearch] = useState(searchFromUrl);
+  const [debouncedSearch, setDebouncedSearch] = useState(searchFromUrl);
   const [page, setPage] = useState(1);
   const [refreshIndex, setRefreshIndex] = useState(0);
+  const [autoExpandDisabled, setAutoExpandDisabled] = useState(false);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [updatingTaskField, setUpdatingTaskField] = useState<string | null>(null);
 
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
   const [formProject, setFormProject] = useState("");
@@ -46,6 +54,12 @@ export default function Tasks() {
     api
       .get<{ projects: Project[] }>("/projects", { params: { limit: 100 } })
       .then((response) => setProjects(response.data.projects))
+      .catch(() => {
+      });
+
+    api
+      .get<UsersResponse>("/auth/users")
+      .then((response) => setUsers(response.data.users))
       .catch(() => {
       });
   }, []);
@@ -89,6 +103,83 @@ export default function Tasks() {
   }, [status, debouncedSearch, page, refreshIndex]);
 
   const projectsById = new Map<string, Project>(projects.map((project) => [project._id, project]));
+
+  const autoExpandedTaskId =
+    !autoExpandDisabled && searchFromUrl
+      ? tasks.find((task) => task.taskNumber.toLowerCase() === searchFromUrl.toLowerCase())?._id ?? null
+      : null;
+
+  const effectiveExpandedTaskId = expandedTaskId ?? autoExpandedTaskId;
+
+  function userId(value: Task["assignedTo"] | Task["completedBy"]): string {
+    if (!value) return "";
+    return typeof value === "string" ? value : value._id;
+  }
+
+  function userLabel(userValue: Task["assignedTo"] | Task["completedBy"]): string {
+    if (!userValue) return "—";
+    if (typeof userValue !== "string") return userValue.name;
+    const found = users.find((user) => user._id === userValue);
+    return found ? found.name : "—";
+  }
+
+  function descriptionLines(description?: string): string[] {
+    if (!description) return [];
+    return description
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map((line) => (line.startsWith("- ") ? line.slice(2) : line));
+  }
+
+  function toggleTaskDetails(taskId: string) {
+    setAutoExpandDisabled(true);
+    setExpandedTaskId((current) => {
+      const activeTaskId = current ?? autoExpandedTaskId;
+      return activeTaskId === taskId ? null : taskId;
+    });
+  }
+
+  async function handleAssignmentChange(
+    taskId: string,
+    field: "assignedTo" | "completedBy",
+    selectedUserId: string,
+  ) {
+    setUpdatingTaskField(`${taskId}:${field}`);
+    setAssignmentError(null);
+
+    try {
+      const payload: Record<string, string | undefined> = {};
+      payload[field] = selectedUserId || undefined;
+
+      const response = await api.put<{ task: Task }>(`/tasks/${taskId}`, payload);
+
+      setTasks((current) =>
+        current.map((task) => (task._id === taskId ? response.data.task : task)),
+      );
+    } catch (err) {
+      setAssignmentError(getErrorMessage(err));
+    } finally {
+      setUpdatingTaskField(null);
+    }
+  }
+
+  async function handleStatusChange(taskId: string, nextStatus: TaskStatus) {
+    setUpdatingTaskField(`${taskId}:status`);
+    setAssignmentError(null);
+
+    try {
+      const response = await api.put<{ task: Task }>(`/tasks/${taskId}`, { status: nextStatus });
+
+      setTasks((current) =>
+        current.map((task) => (task._id === taskId ? response.data.task : task)),
+      );
+    } catch (err) {
+      setAssignmentError(getErrorMessage(err));
+    } finally {
+      setUpdatingTaskField(null);
+    }
+  }
 
   function resetForm() {
     setFormProject("");
@@ -239,6 +330,12 @@ export default function Tasks() {
         </p>
       )}
 
+      {assignmentError && (
+        <p role="alert" className="form-error">
+          {assignmentError}
+        </p>
+      )}
+
       <div className="table-scroll">
         <table className="data-table">
           <thead>
@@ -249,27 +346,138 @@ export default function Tasks() {
               <th>Est. Hours</th>
               <th>Status</th>
               <th>Due Date</th>
+              <th>Assigned To</th>
+              <th>Completed By</th>
             </tr>
           </thead>
           <tbody>
-            {tasks.map((task) => (
-              <tr key={task._id}>
-                <td>{task.taskNumber}</td>
-                <td>{projectLabel(task.project, projectsById)}</td>
-                <td>{task.title}</td>
-                <td>{task.estimateHours != null ? numberFormatter.format(task.estimateHours) : "—"}</td>
-                <td>
-                  <StatusBadge
-                    label={TASK_STATUS_LABELS[task.status]}
-                    tone={TASK_STATUS_TONE[task.status]}
-                  />
-                </td>
-                <td>{dateFormatter.format(new Date(task.dueDate))}</td>
-              </tr>
-            ))}
+            {tasks.map((task) => {
+              const isExpanded = effectiveExpandedTaskId === task._id;
+              const subtasks = descriptionLines(task.description);
+
+              return (
+                <Fragment key={task._id}>
+                  <tr key={task._id} className={isExpanded ? "task-row-expanded" : undefined}>
+                    <td>{task.taskNumber}</td>
+                    <td>{projectLabel(task.project, projectsById)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="task-title-button"
+                        onClick={() => toggleTaskDetails(task._id)}
+                        aria-expanded={isExpanded}
+                      >
+                        {task.title}
+                      </button>
+                    </td>
+                    <td>{task.estimateHours != null ? numberFormatter.format(task.estimateHours) : "—"}</td>
+                    <td>
+                      <select
+                        aria-label={`Status for task ${task.taskNumber}`}
+                        className="task-assignment-select task-status-select"
+                        data-status={task.status}
+                        value={task.status}
+                        onChange={(event) => {
+                          void handleStatusChange(task._id, event.target.value as TaskStatus);
+                        }}
+                        disabled={updatingTaskField === `${task._id}:status`}
+                      >
+                        {TASK_STATUSES.map((taskStatus) => (
+                          <option key={taskStatus} value={taskStatus}>
+                            {TASK_STATUS_LABELS[taskStatus]}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>{dateFormatter.format(new Date(task.dueDate))}</td>
+                    <td>
+                      <select
+                        aria-label={`Assign user for task ${task.taskNumber}`}
+                        className="task-assignment-select"
+                        value={userId(task.assignedTo)}
+                        onChange={(event) => {
+                          void handleAssignmentChange(task._id, "assignedTo", event.target.value);
+                        }}
+                        disabled={
+                          task.status === "done" || updatingTaskField === `${task._id}:assignedTo`
+                        }
+                      >
+                        <option value="">Unassigned</option>
+                        {users.map((user) => (
+                          <option key={user._id} value={user._id}>
+                            {user.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <select
+                        aria-label={`Completed by user for task ${task.taskNumber}`}
+                        className="task-assignment-select"
+                        value={userId(task.completedBy)}
+                        onChange={(event) => {
+                          void handleAssignmentChange(task._id, "completedBy", event.target.value);
+                        }}
+                        disabled={
+                          task.status === "done" || updatingTaskField === `${task._id}:completedBy`
+                        }
+                      >
+                        <option value="">Not completed</option>
+                        {users.map((user) => (
+                          <option key={user._id} value={user._id}>
+                            {user.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
+
+                  {isExpanded && (
+                    <tr key={`${task._id}-details`}>
+                      <td colSpan={8} className="task-details-cell">
+                        <div className="card task-details-card">
+                          <h3>Task Details</h3>
+                          <div className="task-details-meta">
+                            <p>
+                              <strong>Task #:</strong> {task.taskNumber}
+                            </p>
+                            <p>
+                              <strong>Project:</strong> {projectLabel(task.project, projectsById)}
+                            </p>
+                            <p>
+                              <strong>Status:</strong> {TASK_STATUS_LABELS[task.status]}
+                            </p>
+                            <p>
+                              <strong>Due:</strong> {dateFormatter.format(new Date(task.dueDate))}
+                            </p>
+                            <p>
+                              <strong>Assigned To:</strong> {userLabel(task.assignedTo)}
+                            </p>
+                            <p>
+                              <strong>Completed By:</strong> {userLabel(task.completedBy)}
+                            </p>
+                          </div>
+
+                          <h4>Subtasks / Description</h4>
+                          {subtasks.length > 0 ? (
+                            <ul className="task-subtasks-list">
+                              {subtasks.map((subtask, index) => (
+                                <li key={`${task._id}-subtask-${index}`}>{subtask}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="task-subtasks-empty">No subtask details on this task.</p>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
             {!loading && tasks.length === 0 && (
               <tr>
-                <td colSpan={6}>No tasks found.</td>
+                <td colSpan={8}>No tasks found.</td>
               </tr>
             )}
           </tbody>

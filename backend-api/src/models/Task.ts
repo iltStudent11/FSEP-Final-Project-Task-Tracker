@@ -12,10 +12,12 @@ export interface ITask extends Document {
   taskNumber: string;
   project: Types.ObjectId;
   title: string;
+  description?: string;
   dueDate: Date;
   estimateHours: number;
   status: TaskStatus;
-  assignedTo: Types.ObjectId;
+  assignedTo?: Types.ObjectId;
+  completedBy?: Types.ObjectId;
   notes: Types.DocumentArray<ITaskNote>;
   createdAt: Date;
   updatedAt: Date;
@@ -58,6 +60,10 @@ const taskSchema = new Schema<ITask>(
       type: String,
       required: true,
     },
+    description: {
+      type: String,
+      trim: true,
+    },
     dueDate: {
       type: Date,
       required: true,
@@ -72,6 +78,10 @@ const taskSchema = new Schema<ITask>(
       default: "todo",
     },
     assignedTo: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+    completedBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
     },

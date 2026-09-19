@@ -1,6 +1,6 @@
-# Policy Claims Tracker — Frontend
+# Task Tracker — Frontend
 
-A React + TypeScript client for the [`backend-api`](../../backend-api/) Policy Claims Tracker API, built with Vite.
+A React + TypeScript client for the [`backend-api`](../../backend-api/) Task Tracker API, built with Vite.
 
 ## Tech stack
 
@@ -21,7 +21,7 @@ This starts the Vite dev server (prints the local URL, typically `http://localho
 
 Alternatively, run this client (and the API + MongoDB) in Docker instead of installing anything locally — see the root [README](../../README.md#running-with-docker). `frontend-client/Dockerfile` builds this app with Vite and serves it via nginx, which also handles the `/api/*` proxy that `vite.config.ts` handles in dev.
 
-To log in, use one of the accounts created by the backend's `npm run seed` (e.g. `admin@policyclaims.com` / `Admin123!`), or register a new account from `/register`.
+To log in, use one of the accounts created by the backend's `npm run seed` (e.g. `admin@tasktracker.com` / `Admin123!`), or register a new account from `/register`.
 
 ## npm scripts
 
@@ -39,9 +39,8 @@ To log in, use one of the accounts created by the backend's `npm run seed` (e.g.
 | `/login` | `Login` | public |
 | `/register` | `Register` | public |
 | `/` | `Dashboard` | protected |
-| `/claims` | `Claims` | protected |
-| `/claims/:id` | `ClaimDetail` | protected |
-| `/policies` | `Policies` | protected |
+| `/tasks` | `Tasks` | protected |
+| `/projects` | `Projects` | protected |
 
 Protected routes are wrapped in `ProtectedRoute`, which redirects to `/login` when there's no stored token and otherwise renders the shared `Banner` (nav + user identity + role badge + logout) above the page. `Footer` renders on every route, including the public auth pages.
 
@@ -54,10 +53,9 @@ Protected routes are wrapped in `ProtectedRoute`, which redirects to `/login` wh
 
 ## Pages
 
-- **Dashboard** (`/`) — summary stat cards (totals), a CSS-only bar chart of claims by status, and a table of the 5 most recent claims, all from `GET /api/dashboard`.
-- **Claims** (`/claims`) — paginated, filterable (status + search) table of all claims, with an inline "New Claim" form.
-- **Claim Detail** (`/claims/:id`) — full claim record, a status-update control, notes (list + add), and delete with inline confirmation.
-- **Policies** (`/policies`) — paginated, filterable (type + search) table of all policies, with an inline "New Policy" form and per-row delete.
+- **Dashboard** (`/`) — summary stat cards, tasks-by-status chart, projects-by-category summary, and a table of recent tasks from `GET /api/dashboard`.
+- **Tasks** (`/tasks`) — paginated, filterable (status + search) task list with an inline "New Task" form.
+- **Projects** (`/projects`) — paginated, filterable (category + search) project list with inline create and per-row delete.
 - **Login** / **Register** — auth forms; `Register` redirects to `/login` on success (see Auth flow above).
 
-Status badges (`StatusBadge`) and their color tones are centralized in `src/claimStatus.ts` and `src/policyMeta.ts` so claim/policy status coloring stays consistent across the dashboard chart, list tables, and the claim detail page.
+Status badges (`StatusBadge`) and their color tones are centralized in `src/claimStatus.ts` and `src/policyMeta.ts` so task/project status coloring stays consistent across dashboard and list views.

@@ -10,7 +10,7 @@ services:
   api:
     build: ./backend-api
     environment:
-      MONGODB_URI: mongodb://mongo:27017/policy-claims
+      MONGODB_URI: mongodb://mongo:27017/task-tracker
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
       PORT: 3000
     depends_on:
