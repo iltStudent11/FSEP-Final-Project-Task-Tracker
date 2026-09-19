@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-api
+  namespace: policy-claims
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-api
+  template:
+    metadata:
+      labels:
+        app: backend-api
+    spec:
+      containers:
+        - name: api
+          image: 717279729058.dkr.ecr.us-east-1.amazonaws.com/fsep-cap3-backend-api:1.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: policy-claims-secrets
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-api-svc
+  namespace: policy-claims
+spec:
+  selector:
+    app: backend-api
+  ports:
+    - port: 3000
+      targetPort: 3000
+  # ClusterIP, not LoadBalancer: the frontend's nginx proxies /api/* to this
+  # service internally (see frontend-client.yml's API_UPSTREAM), so the API
+  # never needs its own public load balancer or a direct internet route.
+  type: ClusterIP

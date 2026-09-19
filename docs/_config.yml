@@ -1,0 +1,8 @@
+title: fsep-cap3-policy-claims-tracker — Documentation
+
+# Apply the custom layout (which loads Mermaid.js) to every page.
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default

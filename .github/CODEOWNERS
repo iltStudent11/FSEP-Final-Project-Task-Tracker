@@ -1,0 +1,12 @@
+# Code owners for FSEP-CAP3-POLICY-CLAIMS-TRACKER.
+#
+# Owners listed here are automatically requested for review on any pull request
+# that touches a matching path. To actually *restrict* changes to `main`, enable a
+# branch-protection rule (or ruleset) on `main` in the repository settings with
+# "Require a pull request before merging" + "Require review from Code Owners".
+# CODEOWNERS defines the owners; the branch-protection rule enforces them.
+#
+# Later, more-specific patterns override earlier ones.
+
+# Default owner for everything in the repository.
+*       @das77
