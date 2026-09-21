@@ -22,7 +22,7 @@ async function createOwner(name = "Owner") {
     name,
     email: `${name.toLowerCase()}@example.com`,
     password: "Password123!",
-    role: "adjuster",
+    role: "member",
   });
 }
 
