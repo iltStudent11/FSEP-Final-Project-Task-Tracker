@@ -16,6 +16,73 @@ router.use(authenticate);
 const PROJECT_CATEGORIES = ["web", "mobile", "data"];
 const PROJECT_STATUSES = ["active", "on-hold", "completed"];
 
+/**
+ * @openapi
+ * /projects:
+ *   get:
+ *     tags: [Projects]
+ *     summary: List projects
+ *     parameters:
+ *       - in: query
+ *         name: category
+ *         schema: { type: string, enum: [web, mobile, data] }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [active, on-hold, completed] }
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *         description: Matches against project name or project code
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, minimum: 1, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+ *     responses:
+ *       200:
+ *         description: Paginated projects
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 projects:
+ *                   type: array
+ *                   items: { $ref: '#/components/schemas/Project' }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *   post:
+ *     tags: [Projects]
+ *     summary: Create a project
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [projectCode, name, category, budgetHours, status, startDate, targetDate]
+ *             properties:
+ *               projectCode: { type: string, example: PRJ-100 }
+ *               name: { type: string, example: Customer Portal Revamp }
+ *               category: { type: string, enum: [web, mobile, data] }
+ *               budgetHours: { type: number, minimum: 0, example: 120 }
+ *               status: { type: string, enum: [active, on-hold, completed] }
+ *               startDate: { type: string, format: date }
+ *               targetDate: { type: string, format: date }
+ *     responses:
+ *       201:
+ *         description: Project created (owner is the authenticated user)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 project: { $ref: '#/components/schemas/Project' }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.get(
   "/",
   validate([
@@ -61,6 +128,76 @@ router.get(
   },
 );
 
+/**
+ * @openapi
+ * /projects/{id}:
+ *   get:
+ *     tags: [Projects]
+ *     summary: Get a single project (owner populated)
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Project
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 project: { $ref: '#/components/schemas/Project' }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *   put:
+ *     tags: [Projects]
+ *     summary: Update a project
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               projectCode: { type: string }
+ *               name: { type: string }
+ *               category: { type: string, enum: [web, mobile, data] }
+ *               budgetHours: { type: number, minimum: 0 }
+ *               status: { type: string, enum: [active, on-hold, completed] }
+ *               startDate: { type: string, format: date }
+ *               targetDate: { type: string, format: date }
+ *     responses:
+ *       200:
+ *         description: Updated project
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 project: { $ref: '#/components/schemas/Project' }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *   delete:
+ *     tags: [Projects]
+ *     summary: Delete a project
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       204: { description: Deleted }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get(
   "/:id",
   validate([param("id").isMongoId().withMessage("Invalid project id")]),
