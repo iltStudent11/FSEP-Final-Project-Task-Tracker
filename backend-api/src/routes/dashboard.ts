@@ -11,6 +11,36 @@ router.use(authenticate);
 const TASK_STATUSES = ["todo", "in-progress", "blocked", "done"];
 const PROJECT_CATEGORIES = ["web", "mobile", "data"];
 
+/**
+ * @openapi
+ * /dashboard:
+ *   get:
+ *     tags: [Dashboard]
+ *     summary: Aggregated totals across tasks, projects, and users
+ *     responses:
+ *       200:
+ *         description: Dashboard summary
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalTasks: { type: integer }
+ *                 tasksByStatus:
+ *                   type: object
+ *                   additionalProperties: { type: integer }
+ *                 totalProjects: { type: integer }
+ *                 projectsByCategory:
+ *                   type: object
+ *                   additionalProperties: { type: integer }
+ *                 totalUsers: { type: integer }
+ *                 recentTasks:
+ *                   type: array
+ *                   description: Last 5 tasks, newest first, with project and assignedTo populated
+ *                   items: { $ref: '#/components/schemas/Task' }
+ *                 totalEstimateHours: { type: number }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.get("/", async (_req: Request, res: Response) => {
   const [
     totalTasks,
