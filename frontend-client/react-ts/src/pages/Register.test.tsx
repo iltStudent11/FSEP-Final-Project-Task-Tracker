@@ -29,12 +29,13 @@ describe("Register page", () => {
     expect(screen.getByLabelText(/role/i)).toBeInTheDocument();
   });
 
-  it("defaults role to adjuster and offers admin as an option", () => {
+  it("defaults role to member and offers admin and lead as options", () => {
     renderRegister();
 
     const roleSelect = screen.getByLabelText(/role/i) as HTMLSelectElement;
-    expect(roleSelect.value).toBe("adjuster");
+    expect(roleSelect.value).toBe("member");
     expect(screen.getByRole("option", { name: /admin/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /lead/i })).toBeInTheDocument();
   });
 
   it("renders a submit button", () => {
