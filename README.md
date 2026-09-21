@@ -155,6 +155,54 @@ npm run dev
 
 The dev server proxies `/api/*` requests to the backend at `http://localhost:3000` (see `vite.config.ts`), so run `backend-api`'s dev server alongside it — or just run `make dev` from the repo root to start both together. No frontend-specific environment variables are required.
 
+## Scripts
+
+Reusable stack lifecycle scripts live in [Scripts](Scripts).
+
+### Combined (dev + prod)
+
+```bash
+./Scripts/up-all.sh
+./Scripts/down-all.sh
+./Scripts/status-all.sh
+```
+
+`up-all.sh` starts both environments together and maps prod MongoDB to host port `37017` by default to avoid collisions with dev. Override with:
+
+```bash
+PROD_MONGO_PORT_WHEN_BOTH_UP=47017 ./Scripts/up-all.sh
+```
+
+### Dev only
+
+```bash
+./Scripts/up-dev.sh
+./Scripts/down-dev.sh
+./Scripts/status-dev.sh
+```
+
+### Prod only
+
+```bash
+./Scripts/up-prod.sh
+./Scripts/down-prod.sh
+./Scripts/status-prod.sh
+```
+
+### Quick reference
+
+| Script | Target | Compose project | Notes |
+|---|---|---|---|
+| `Scripts/up-all.sh` | dev + prod | `tasktracker-dev` + `tasktracker-prod` | Starts both; prod Mongo host port defaults to `37017` when both run |
+| `Scripts/down-all.sh` | dev + prod | `tasktracker-dev` + `tasktracker-prod` | Stops prod first, then dev |
+| `Scripts/status-all.sh` | dev + prod | `tasktracker-dev` + `tasktracker-prod` | Prints both stacks' statuses |
+| `Scripts/up-dev.sh` | dev | `tasktracker-dev` | Builds and starts dev stack |
+| `Scripts/down-dev.sh` | dev | `tasktracker-dev` | Stops dev stack |
+| `Scripts/status-dev.sh` | dev | `tasktracker-dev` | Shows dev stack status |
+| `Scripts/up-prod.sh` | prod | `tasktracker-prod` | Ensures certs exist, then builds and starts prod stack |
+| `Scripts/down-prod.sh` | prod | `tasktracker-prod` | Stops prod stack |
+| `Scripts/status-prod.sh` | prod | `tasktracker-prod` | Shows prod stack status |
+
 ## Running with Docker
 
 The whole stack (MongoDB, API, client) can also be run in containers instead of installing Node/MongoDB locally. Two Compose files are provided; both build `backend-api/Dockerfile` and `frontend-client/Dockerfile` and start a `mongo:7` container — pick one based on whether you want plain HTTP or HTTPS.
