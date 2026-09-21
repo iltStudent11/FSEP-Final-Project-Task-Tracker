@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 const SALT_ROUNDS = 12;
 
-export type UserRole = "adjuster" | "admin";
+export type UserRole = "admin" | "member" | "lead";
 
 export interface IUser extends Document {
   name: string;
@@ -36,8 +36,8 @@ const userSchema = new Schema<IUser>({
   },
   role: {
     type: String,
-    enum: ["adjuster", "admin"],
-    default: "adjuster",
+    enum: ["admin", "member", "lead"],
+    default: "member",
   },
   createdAt: {
     type: Date,
