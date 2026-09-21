@@ -11,7 +11,7 @@ export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("adjuster");
+  const [role, setRole] = useState<UserRole>("member");
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
@@ -73,7 +73,8 @@ export default function Register() {
           value={role}
           onChange={(event) => setRole(event.target.value as UserRole)}
         >
-          <option value="adjuster">Adjuster</option>
+          <option value="member">Member</option>
+          <option value="lead">Lead</option>
           <option value="admin">Admin</option>
         </select>
 
