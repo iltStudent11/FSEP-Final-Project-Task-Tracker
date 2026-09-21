@@ -5,11 +5,11 @@ import { getErrorMessage } from "../errorMessage";
 import { TASK_STATUSES, TASK_STATUS_LABELS } from "../claimStatus";
 import type { PaginatedTasks, Project, Task, TaskStatus, User, UsersResponse } from "../types";
 
-const numberFormatter = new Intl.NumberFormat("en-US", {
-  maximumFractionDigits: 1,
-});
-
-const dateFormatter = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
+// dueDate is stored as a UTC-midnight calendar date; formatting in the
+// viewer's local timezone can shift it back a day (e.g. UTC midnight
+// displays as the prior evening west of UTC) — force UTC to keep it stable.
+const dateFormatter = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" });
+const noteDateFormatter = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
 
 function projectLabel(project: Task["project"], projectsById: Map<string, Project>): string {
   if (typeof project !== "string") return project.projectCode;
@@ -44,6 +44,17 @@ export default function Tasks() {
   const [formEstimateHours, setFormEstimateHours] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [submittingNoteTaskId, setSubmittingNoteTaskId] = useState<string | null>(null);
+
+  const [subtaskError, setSubtaskError] = useState<string | null>(null);
+  const [updatingSubtaskId, setUpdatingSubtaskId] = useState<string | null>(null);
+  const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>({});
+  const [submittingSubtaskTaskId, setSubmittingSubtaskTaskId] = useState<string | null>(null);
+
+  const [estimateHoursDrafts, setEstimateHoursDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const timeout = setTimeout(() => setDebouncedSearch(search), 300);
@@ -123,15 +134,6 @@ export default function Tasks() {
     return found ? found.name : "—";
   }
 
-  function descriptionLines(description?: string): string[] {
-    if (!description) return [];
-    return description
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0)
-      .map((line) => (line.startsWith("- ") ? line.slice(2) : line));
-  }
-
   function toggleTaskDetails(taskId: string) {
     setAutoExpandDisabled(true);
     setExpandedTaskId((current) => {
@@ -140,19 +142,16 @@ export default function Tasks() {
     });
   }
 
-  async function handleAssignmentChange(
+  async function handleTaskFieldUpdate(
     taskId: string,
-    field: "assignedTo" | "completedBy",
-    selectedUserId: string,
+    field: string,
+    value: string | number | undefined,
   ) {
     setUpdatingTaskField(`${taskId}:${field}`);
     setAssignmentError(null);
 
     try {
-      const payload: Record<string, string | undefined> = {};
-      payload[field] = selectedUserId || undefined;
-
-      const response = await api.put<{ task: Task }>(`/tasks/${taskId}`, payload);
+      const response = await api.put<{ task: Task }>(`/tasks/${taskId}`, { [field]: value });
 
       setTasks((current) =>
         current.map((task) => (task._id === taskId ? response.data.task : task)),
@@ -164,20 +163,106 @@ export default function Tasks() {
     }
   }
 
-  async function handleStatusChange(taskId: string, nextStatus: TaskStatus) {
-    setUpdatingTaskField(`${taskId}:status`);
-    setAssignmentError(null);
+  function handleAssignmentChange(
+    taskId: string,
+    field: "assignedTo" | "completedBy",
+    selectedUserId: string,
+  ) {
+    return handleTaskFieldUpdate(taskId, field, selectedUserId || undefined);
+  }
+
+  function handleStatusChange(taskId: string, nextStatus: TaskStatus) {
+    return handleTaskFieldUpdate(taskId, "status", nextStatus);
+  }
+
+  function estimateHoursValue(task: Task): string {
+    const draft = estimateHoursDrafts[task._id];
+    if (draft !== undefined) return draft;
+    return task.estimateHours != null ? String(task.estimateHours) : "";
+  }
+
+  async function handleEstimateHoursBlur(task: Task) {
+    const draft = estimateHoursDrafts[task._id];
+    if (draft === undefined) return;
+
+    setEstimateHoursDrafts((current) => {
+      const next = { ...current };
+      delete next[task._id];
+      return next;
+    });
+
+    const trimmed = draft.trim();
+    const parsed = trimmed === "" ? undefined : Number(trimmed);
+
+    if (trimmed !== "" && (Number.isNaN(parsed) || (parsed as number) < 0)) {
+      setAssignmentError("Estimate hours must be a non-negative number");
+      return;
+    }
+
+    if (parsed === task.estimateHours) return;
+
+    await handleTaskFieldUpdate(task._id, "estimateHours", parsed);
+  }
+
+  async function handleAddNote(taskId: string) {
+    const text = (noteDrafts[taskId] ?? "").trim();
+    if (!text) return;
+
+    setSubmittingNoteTaskId(taskId);
+    setNoteError(null);
 
     try {
-      const response = await api.put<{ task: Task }>(`/tasks/${taskId}`, { status: nextStatus });
+      const response = await api.post<{ task: Task }>(`/tasks/${taskId}/notes`, { text });
+
+      setTasks((current) =>
+        current.map((task) => (task._id === taskId ? response.data.task : task)),
+      );
+      setNoteDrafts((current) => ({ ...current, [taskId]: "" }));
+    } catch (err) {
+      setNoteError(getErrorMessage(err));
+    } finally {
+      setSubmittingNoteTaskId(null);
+    }
+  }
+
+  async function handleToggleSubtask(taskId: string, subtaskId: string, completed: boolean) {
+    setUpdatingSubtaskId(subtaskId);
+    setSubtaskError(null);
+
+    try {
+      const response = await api.patch<{ task: Task }>(
+        `/tasks/${taskId}/subtasks/${subtaskId}`,
+        { completed },
+      );
 
       setTasks((current) =>
         current.map((task) => (task._id === taskId ? response.data.task : task)),
       );
     } catch (err) {
-      setAssignmentError(getErrorMessage(err));
+      setSubtaskError(getErrorMessage(err));
     } finally {
-      setUpdatingTaskField(null);
+      setUpdatingSubtaskId(null);
+    }
+  }
+
+  async function handleAddSubtask(taskId: string) {
+    const text = (subtaskDrafts[taskId] ?? "").trim();
+    if (!text) return;
+
+    setSubmittingSubtaskTaskId(taskId);
+    setSubtaskError(null);
+
+    try {
+      const response = await api.post<{ task: Task }>(`/tasks/${taskId}/subtasks`, { text });
+
+      setTasks((current) =>
+        current.map((task) => (task._id === taskId ? response.data.task : task)),
+      );
+      setSubtaskDrafts((current) => ({ ...current, [taskId]: "" }));
+    } catch (err) {
+      setSubtaskError(getErrorMessage(err));
+    } finally {
+      setSubmittingSubtaskTaskId(null);
     }
   }
 
@@ -353,7 +438,6 @@ export default function Tasks() {
           <tbody>
             {tasks.map((task) => {
               const isExpanded = effectiveExpandedTaskId === task._id;
-              const subtasks = descriptionLines(task.description);
 
               return (
                 <Fragment key={task._id}>
@@ -370,7 +454,24 @@ export default function Tasks() {
                         {task.title}
                       </button>
                     </td>
-                    <td>{task.estimateHours != null ? numberFormatter.format(task.estimateHours) : "—"}</td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        aria-label={`Estimate hours for task ${task.taskNumber}`}
+                        className="task-assignment-select"
+                        value={estimateHoursValue(task)}
+                        onChange={(event) =>
+                          setEstimateHoursDrafts((current) => ({
+                            ...current,
+                            [task._id]: event.target.value,
+                          }))
+                        }
+                        onBlur={() => void handleEstimateHoursBlur(task)}
+                        disabled={updatingTaskField === `${task._id}:estimateHours`}
+                      />
+                    </td>
                     <td>
                       <select
                         aria-label={`Status for task ${task.taskNumber}`}
@@ -389,7 +490,18 @@ export default function Tasks() {
                         ))}
                       </select>
                     </td>
-                    <td>{dateFormatter.format(new Date(task.dueDate))}</td>
+                    <td>
+                      <input
+                        type="date"
+                        aria-label={`Due date for task ${task.taskNumber}`}
+                        className="task-assignment-select"
+                        value={task.dueDate.slice(0, 10)}
+                        onChange={(event) =>
+                          void handleTaskFieldUpdate(task._id, "dueDate", event.target.value)
+                        }
+                        disabled={updatingTaskField === `${task._id}:dueDate`}
+                      />
+                    </td>
                     <td>
                       <select
                         aria-label={`Assign user for task ${task.taskNumber}`}
@@ -458,15 +570,132 @@ export default function Tasks() {
                             </p>
                           </div>
 
-                          <h4>Subtasks / Description</h4>
-                          {subtasks.length > 0 ? (
+                          {task.description && (
+                            <>
+                              <h4>Description</h4>
+                              <p>{task.description}</p>
+                            </>
+                          )}
+
+                          <h4>Subtasks</h4>
+                          {task.subtasks.length > 0 ? (
                             <ul className="task-subtasks-list">
-                              {subtasks.map((subtask, index) => (
-                                <li key={`${task._id}-subtask-${index}`}>{subtask}</li>
+                              {task.subtasks.map((subtask) => (
+                                <li key={subtask._id} className="task-subtask-item">
+                                  <label>
+                                    <input
+                                      type="checkbox"
+                                      checked={subtask.completed}
+                                      disabled={updatingSubtaskId === subtask._id}
+                                      onChange={(event) =>
+                                        void handleToggleSubtask(
+                                          task._id,
+                                          subtask._id,
+                                          event.target.checked,
+                                        )
+                                      }
+                                    />
+                                    <span className={subtask.completed ? "task-subtask-done" : undefined}>
+                                      {subtask.text}
+                                    </span>
+                                  </label>
+                                </li>
                               ))}
                             </ul>
                           ) : (
-                            <p className="task-subtasks-empty">No subtask details on this task.</p>
+                            <p className="task-subtasks-empty">No subtasks on this task.</p>
+                          )}
+
+                          <form
+                            className="task-subtask-form"
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              void handleAddSubtask(task._id);
+                            }}
+                          >
+                            <input
+                              id={`task-subtask-${task._id}`}
+                              type="text"
+                              aria-label={`Add a subtask to task ${task.taskNumber}`}
+                              placeholder="Add a subtask…"
+                              value={subtaskDrafts[task._id] ?? ""}
+                              onChange={(event) =>
+                                setSubtaskDrafts((current) => ({
+                                  ...current,
+                                  [task._id]: event.target.value,
+                                }))
+                              }
+                            />
+                            <button
+                              type="submit"
+                              className="btn"
+                              disabled={
+                                submittingSubtaskTaskId === task._id ||
+                                !(subtaskDrafts[task._id] ?? "").trim()
+                              }
+                            >
+                              {submittingSubtaskTaskId === task._id ? "Adding…" : "Add Subtask"}
+                            </button>
+                          </form>
+                          {subtaskError && (
+                            <p role="alert" className="form-error">
+                              {subtaskError}
+                            </p>
+                          )}
+
+                          <h4>Notes</h4>
+                          {task.notes.length > 0 ? (
+                            <ul className="task-notes-list">
+                              {task.notes.map((note, index) => (
+                                <li key={`${task._id}-note-${index}`} className="task-note">
+                                  <p className="task-note-meta">
+                                    <strong>{userLabel(note.author)}</strong>
+                                    {" · "}
+                                    {noteDateFormatter.format(new Date(note.createdAt))}
+                                  </p>
+                                  <p className="task-note-text">{note.text}</p>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="task-subtasks-empty">No notes on this task yet.</p>
+                          )}
+
+                          <form
+                            className="task-note-form"
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              void handleAddNote(task._id);
+                            }}
+                          >
+                            <textarea
+                              id={`task-note-${task._id}`}
+                              aria-label={`Add a note to task ${task.taskNumber}`}
+                              rows={2}
+                              placeholder="Add a note…"
+                              value={noteDrafts[task._id] ?? ""}
+                              onChange={(event) =>
+                                setNoteDrafts((current) => ({
+                                  ...current,
+                                  [task._id]: event.target.value,
+                                }))
+                              }
+                            />
+                            <button
+                              type="submit"
+                              className="btn"
+                              disabled={
+                                submittingNoteTaskId === task._id ||
+                                !(noteDrafts[task._id] ?? "").trim()
+                              }
+                            >
+                              {submittingNoteTaskId === task._id ? "Adding…" : "Add Note"}
+                            </button>
+                          </form>
+                          {noteError && (
+                            <p role="alert" className="form-error">
+                              {noteError}
+                            </p>
                           )}
                         </div>
                       </td>
