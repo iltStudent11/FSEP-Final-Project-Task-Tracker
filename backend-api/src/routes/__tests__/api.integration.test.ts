@@ -97,10 +97,10 @@ describe("API integration", () => {
     it("returns users list for authenticated requests", async () => {
       const { token } = await createAuthenticatedUser("users@example.com");
       await User.create({
-        name: "Adjuster User",
-        email: "adjuster@example.com",
+        name: "Member User",
+        email: "member@example.com",
         password: "Password123!",
-        role: "adjuster",
+        role: "member",
       });
 
       const response = await request(app)
@@ -110,7 +110,7 @@ describe("API integration", () => {
       expect(response.status).toBe(200);
       expect(response.body.users).toHaveLength(2);
       expect(response.body.users.map((user: { email: string }) => user.email)).toEqual(
-        expect.arrayContaining(["users@example.com", "adjuster@example.com"]),
+        expect.arrayContaining(["users@example.com", "member@example.com"]),
       );
     });
 

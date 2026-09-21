@@ -1,9 +1,9 @@
-.PHONY: dev dev-seed dev-api dev-client install install-api install-client seed
+.PHONY: dev dev-seed dev-api dev-client install install-api install-client seed mongo-up mongo-down
 
 # Run both dev servers together. Ctrl-C stops both — the trap kills every
 # job in this recipe's process group on exit, so one doesn't linger after
 # the other (or after Ctrl-C) with its port still held.
-dev:
+dev: mongo-up
 	@trap 'kill 0' EXIT INT TERM; \
 	(cd backend-api && npm run dev) & \
 	(cd frontend-client/react-ts && npm run dev) & \
@@ -32,5 +32,14 @@ install-client:
 
 ## Reset and repopulate the local database with sample users/policies/claims.
 ## Requires a MongoDB instance reachable per backend-api/.env's MONGODB_URI.
-seed:
+seed: mongo-up
 	cd backend-api && npm run seed
+
+## Start just a local MongoDB container (the `mongo` service from
+## docker-compose.yml) for use with `make dev`/`make dev-seed`.
+mongo-up:
+	docker compose up -d mongo
+
+## Stop the local MongoDB container.
+mongo-down:
+	docker compose stop mongo

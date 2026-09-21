@@ -82,7 +82,7 @@ describe("authenticate middleware", () => {
 
   it("attaches the user to the request and calls next for a valid token", async () => {
     const token = jwt.sign({ id: "507f1f77bcf86cd799439011" }, "test-secret");
-    const fakeUser = { _id: "507f1f77bcf86cd799439011", role: "adjuster" };
+    const fakeUser = { _id: "507f1f77bcf86cd799439011", role: "member" };
     vi.mocked(User.findById).mockResolvedValue(fakeUser as never);
     const req = { headers: { authorization: `Bearer ${token}` } } as Request;
     const res = createMockRes();

@@ -29,7 +29,7 @@ const users: User[] = [
     _id: "u-alice",
     name: "Alice Adjuster",
     email: "alice@tasktracker.com",
-    role: "adjuster",
+    role: "member",
     createdAt: new Date("2026-01-02").toISOString(),
   },
 ];
