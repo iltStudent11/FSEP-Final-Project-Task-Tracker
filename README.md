@@ -2,14 +2,14 @@
 
 A Project Task Tracker — a line-of-business application for teams to manage projects, tasks, and delivery progress.
 
-[![CI](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/ci.yml/badge.svg)]([text](https://github.com/iltStudent11/FSEP-Final-Project-Task-Tracker/actions/workflows/ci.yml))
-[![Docs](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/pages.yml/badge.svg)]([text](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/pages.yml))
-[![Actions](https://img.shields.io/badge/Actions-Dashboard-2088FF?logo=githubactions&logoColor=white)](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions)
+[![CI](https://github.com/iltStudent11/FSEP-Final-Project-Task-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/iltStudent11/FSEP-Final-Project-Task-Tracker/actions/workflows/ci.yml)
+[![Docs](https://github.com/iltStudent11/FSEP-Final-Project-Task-Tracker/actions/workflows/pages.yml/badge.svg)](https://github.com/iltStudent11/FSEP-Final-Project-Task-Tracker/actions/workflows/pages.yml)
+[![Actions](https://img.shields.io/badge/Actions-Dashboard-2088FF?logo=githubactions&logoColor=white)](https://github.com/iltStudent11/FSEP-Final-Project-Task-Tracker/actions)
 
 ## Build Status
 
-- **CI**: Runs backend type-checking and tests (including integration tests) plus frontend lint, build, and test checks on pushes and pull requests. [View run history](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/ci.yml).
-- **Docs**: Builds and deploys documentation from `docs/` to GitHub Pages when docs-related changes are pushed to `main`. [View run history](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/pages.yml).
+- **CI**: Runs backend type-checking and tests (including integration tests) plus frontend lint, build, and test checks on pushes and pull requests. [View run history](https://github.com/iltStudent11/FSEP-Final-Project-Task-Tracker/actions/workflows/ci.yml).
+- **Docs**: Builds and deploys documentation from `docs/` to GitHub Pages when docs-related changes are pushed to `main`. [View run history](https://github.com/iltStudent11/FSEP-Final-Project-Task-Tracker/actions/workflows/pages.yml).
 
 <!-- PAGES-LINK:START -->
 📖 **[Documentation site](https://iltstudent11.github.io/FSEP-Final-Project-Task-Tracker/)** — architecture & design docs, published from `docs/` via GitHub Pages.
@@ -43,7 +43,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit togeth
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 22+ (CI and both projects' test suites run on Node 22; Node 20 hits a known `jsdom`/`undici` incompatibility in the frontend test suite)
 - A running MongoDB instance (e.g. via Docker: `docker run -d -p 27017:27017 mongo:7`)
 
 > Prefer not to install Node/MongoDB at all? Skip straight to [**Running with Docker**](#running-with-docker) to run the whole stack (Mongo + API + client) in containers.
@@ -81,15 +81,15 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit togeth
 
       This clears existing `User`/`Project`/`Task` data and inserts:
       - 3 users — 1 admin (`admin@tasktracker.com`), 1 lead (`alice@tasktracker.com`), 1 member (`bob@tasktracker.com`), password `Admin123!` / `Password123!` respectively
-      - 3 projects across `web`, `mobile`, and `data` categories (mix of `active` and `on-hold` statuses)
-      - 15 tasks across every task status, several with notes
+      - 9 projects (one per lab-guide section) across `web`, `mobile`, and `data` categories (mix of `active` and `on-hold` statuses)
+      - 33 tasks (drawn from the lab-guide checklist) spread evenly across every task status
 
    ```mermaid
       pie showData title Seeded tasks by status
-         "todo" : 5
-         "in-progress" : 4
-         "blocked" : 3
-         "done" : 3
+         "todo" : 9
+         "in-progress" : 8
+         "blocked" : 8
+         "done" : 8
    ```
 
 4. Start the dev server:
