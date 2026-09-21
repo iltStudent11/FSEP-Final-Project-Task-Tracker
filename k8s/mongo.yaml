@@ -2,7 +2,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: mongo-data
-  namespace: policy-claims
+  namespace: task-tracker
 spec:
   accessModes:
     - ReadWriteOnce
@@ -14,7 +14,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mongo
-  namespace: policy-claims
+  namespace: task-tracker
 spec:
   replicas: 1
   strategy:
@@ -44,7 +44,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mongo
-  namespace: policy-claims
+  namespace: task-tracker
 spec:
   type: ClusterIP
   selector:
