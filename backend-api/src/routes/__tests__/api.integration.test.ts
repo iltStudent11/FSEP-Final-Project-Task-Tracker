@@ -360,5 +360,219 @@ describe("API integration", () => {
       expect(noteRes.body.task.notes[0].text).toBe("Initial implementation complete.");
       expect(noteRes.body.task.notes[0].author).toBe(ownerId);
     });
+
+    it("creates a task with subtasks, all initially incomplete", async () => {
+      const { token, projectId } = await setupTaskContext();
+
+      const response = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          project: projectId,
+          title: "Ship feature",
+          dueDate: "2026-10-21",
+          subtasks: ["Write code", "Write tests", "Update docs"],
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body.task.subtasks).toHaveLength(3);
+      expect(response.body.task.subtasks.map((s: { text: string }) => s.text)).toEqual([
+        "Write code",
+        "Write tests",
+        "Update docs",
+      ]);
+      expect(response.body.task.subtasks.every((s: { completed: boolean }) => !s.completed)).toBe(
+        true,
+      );
+      expect(response.body.task.status).toBe("todo");
+    });
+
+    it("adds a subtask to an existing task, incomplete by default", async () => {
+      const { token, projectId } = await setupTaskContext();
+
+      const taskRes = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          project: projectId,
+          title: "Ship feature",
+          dueDate: "2026-10-26",
+        });
+
+      const subtaskRes = await request(app)
+        .post(`/api/tasks/${taskRes.body.task._id}/subtasks`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ text: "Write code" });
+
+      expect(subtaskRes.status).toBe(201);
+      expect(subtaskRes.body.task.subtasks).toHaveLength(1);
+      expect(subtaskRes.body.task.subtasks[0].text).toBe("Write code");
+      expect(subtaskRes.body.task.subtasks[0].completed).toBe(false);
+    });
+
+    it("rejects adding a subtask with empty text", async () => {
+      const { token, projectId } = await setupTaskContext();
+
+      const taskRes = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          project: projectId,
+          title: "Ship feature",
+          dueDate: "2026-10-27",
+        });
+
+      const subtaskRes = await request(app)
+        .post(`/api/tasks/${taskRes.body.task._id}/subtasks`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ text: "   " });
+
+      expect(subtaskRes.status).toBe(400);
+    });
+
+    it("reopens a done task when a new subtask is added", async () => {
+      const { token, ownerId, projectId } = await setupTaskContext();
+
+      const taskRes = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          project: projectId,
+          title: "Ship feature",
+          dueDate: "2026-10-28",
+          subtasks: ["Only step"],
+        });
+
+      const [subtask] = taskRes.body.task.subtasks as { _id: string }[];
+
+      const completeRes = await request(app)
+        .patch(`/api/tasks/${taskRes.body.task._id}/subtasks/${subtask!._id}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ completed: true });
+
+      expect(completeRes.body.task.status).toBe("done");
+      expect(completeRes.body.task.assignedTo).toBe(ownerId);
+
+      const newSubtaskRes = await request(app)
+        .post(`/api/tasks/${taskRes.body.task._id}/subtasks`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ text: "One more thing" });
+
+      expect(newSubtaskRes.status).toBe(201);
+      expect(newSubtaskRes.body.task.status).toBe("in-progress");
+      expect(newSubtaskRes.body.task.subtasks).toHaveLength(2);
+    });
+
+    it("marks a task done and auto-assigns the current user once every subtask is completed", async () => {
+      const { token, ownerId, projectId } = await setupTaskContext();
+
+      const taskRes = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          project: projectId,
+          title: "Ship feature",
+          dueDate: "2026-10-22",
+          subtasks: ["Write code", "Write tests"],
+        });
+
+      expect(taskRes.status).toBe(201);
+      const [first, second] = taskRes.body.task.subtasks as { _id: string }[];
+
+      const firstToggle = await request(app)
+        .patch(`/api/tasks/${taskRes.body.task._id}/subtasks/${first!._id}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ completed: true });
+
+      expect(firstToggle.status).toBe(200);
+      expect(firstToggle.body.task.status).toBe("todo");
+
+      const secondToggle = await request(app)
+        .patch(`/api/tasks/${taskRes.body.task._id}/subtasks/${second!._id}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ completed: true });
+
+      expect(secondToggle.status).toBe(200);
+      expect(secondToggle.body.task.status).toBe("done");
+      expect(secondToggle.body.task.assignedTo).toBe(ownerId);
+      expect(secondToggle.body.task.completedBy).toBe(ownerId);
+    });
+
+    it("moves a done task back to in-progress when a subtask is un-completed", async () => {
+      const { token, projectId } = await setupTaskContext();
+
+      const taskRes = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          project: projectId,
+          title: "Ship feature",
+          dueDate: "2026-10-23",
+          subtasks: ["Only step"],
+        });
+
+      const [subtask] = taskRes.body.task.subtasks as { _id: string }[];
+
+      const completeRes = await request(app)
+        .patch(`/api/tasks/${taskRes.body.task._id}/subtasks/${subtask!._id}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ completed: true });
+
+      expect(completeRes.body.task.status).toBe("done");
+
+      const reopenRes = await request(app)
+        .patch(`/api/tasks/${taskRes.body.task._id}/subtasks/${subtask!._id}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ completed: false });
+
+      expect(reopenRes.status).toBe(200);
+      expect(reopenRes.body.task.status).toBe("in-progress");
+    });
+
+    it("rejects marking a task done manually while subtasks are incomplete", async () => {
+      const { token, projectId } = await setupTaskContext();
+
+      const taskRes = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          project: projectId,
+          title: "Ship feature",
+          dueDate: "2026-10-24",
+          subtasks: ["Write code", "Write tests"],
+        });
+
+      const updateRes = await request(app)
+        .put(`/api/tasks/${taskRes.body.task._id}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ status: "done" });
+
+      expect(updateRes.status).toBe(400);
+      expect(updateRes.body.message).toBe(
+        "All subtasks must be completed before marking this task done",
+      );
+    });
+
+    it("returns 404 for an unknown subtask id", async () => {
+      const { token, projectId } = await setupTaskContext();
+
+      const taskRes = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          project: projectId,
+          title: "Ship feature",
+          dueDate: "2026-10-25",
+          subtasks: ["Only step"],
+        });
+
+      const response = await request(app)
+        .patch(`/api/tasks/${taskRes.body.task._id}/subtasks/507f1f77bcf86cd799439011`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ completed: true });
+
+      expect(response.status).toBe(404);
+      expect(response.body.message).toBe("Subtask not found");
+    });
   });
 });
