@@ -9,7 +9,7 @@ export type ObjectId = string;
 // User
 // ---------------------------------------------------------------------------
 
-export type UserRole = "adjuster" | "admin";
+export type UserRole = "admin" | "member" | "lead";
 
 export interface User {
   _id: ObjectId;
