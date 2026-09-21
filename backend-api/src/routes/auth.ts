@@ -51,7 +51,7 @@ router.post(
     body("password")
       .isLength({ min: 8 })
       .withMessage("Password must be at least 8 characters"),
-    body("role").optional().isIn(["adjuster", "admin"]).withMessage("Invalid role"),
+    body("role").optional().isIn(["admin", "member", "lead"]).withMessage("Invalid role"),
   ]),
   async (req: Request, res: Response) => {
     const { name, email, password, role } = req.body;

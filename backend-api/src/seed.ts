@@ -224,16 +224,16 @@ async function seed(): Promise<void> {
       role: "admin",
     }),
     User.create({
-      name: "Alice Adjuster",
+      name: "Alice Lead",
       email: "alice@tasktracker.com",
       password: "Password123!",
-      role: "adjuster",
+      role: "lead",
     }),
     User.create({
-      name: "Bob Adjuster",
+      name: "Bob Member",
       email: "bob@tasktracker.com",
       password: "Password123!",
-      role: "adjuster",
+      role: "member",
     }),
   ]);
 

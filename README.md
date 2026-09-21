@@ -80,7 +80,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit togeth
    (or, from the repo root: `make seed`)
 
       This clears existing `User`/`Project`/`Task` data and inserts:
-      - 3 users — 1 admin (`admin@tasktracker.com`), 2 adjusters (`alice@tasktracker.com`, `bob@tasktracker.com`), password `Admin123!` / `Password123!` respectively
+      - 3 users — 1 admin (`admin@tasktracker.com`), 1 lead (`alice@tasktracker.com`), 1 member (`bob@tasktracker.com`), password `Admin123!` / `Password123!` respectively
       - 3 projects across `web`, `mobile`, and `data` categories (mix of `active` and `on-hold` statuses)
       - 15 tasks across every task status, several with notes
 

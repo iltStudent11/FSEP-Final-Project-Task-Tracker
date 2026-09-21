@@ -30,7 +30,7 @@ describe("generateToken", () => {
   it("sets a 60 minute expiry", () => {
     const fakeUser = {
       _id: { toString: () => "507f1f77bcf86cd799439011" },
-      role: "adjuster",
+      role: "member",
     } as unknown as IUser;
 
     const token = generateToken(fakeUser);
@@ -42,7 +42,7 @@ describe("generateToken", () => {
   it("returns token creation and expiration timestamps", () => {
     const fakeUser = {
       _id: { toString: () => "507f1f77bcf86cd799439011" },
-      role: "adjuster",
+      role: "member",
     } as unknown as IUser;
 
     const token = generateToken(fakeUser);
@@ -57,7 +57,7 @@ describe("generateToken", () => {
     delete process.env.JWT_SECRET;
     const fakeUser = {
       _id: { toString: () => "507f1f77bcf86cd799439011" },
-      role: "adjuster",
+      role: "member",
     } as unknown as IUser;
 
     expect(() => generateToken(fakeUser)).toThrow("Missing JWT_SECRET");

@@ -57,14 +57,14 @@ describe("User model", () => {
     expect(JSON.stringify(user)).not.toContain("password123");
   });
 
-  it("defaults role to adjuster", async () => {
+  it("defaults role to member", async () => {
     const user = await User.create({
       name: "Erin",
       email: "erin@example.com",
       password: "password123",
     });
 
-    expect(user.role).toBe("adjuster");
+    expect(user.role).toBe("member");
   });
 
   it("rejects a duplicate email", async () => {

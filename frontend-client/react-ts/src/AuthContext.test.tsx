@@ -10,7 +10,7 @@ const mockUser: User = {
   _id: "user-1",
   name: "Alice Adjuster",
   email: "alice@policyclaims.com",
-  role: "adjuster",
+  role: "member",
   createdAt: new Date().toISOString(),
 };
 
