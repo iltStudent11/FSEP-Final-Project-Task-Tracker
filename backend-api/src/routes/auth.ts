@@ -26,7 +26,7 @@ const router = Router();
  *               name: { type: string, example: Jane Doe }
  *               email: { type: string, format: email, example: jane@example.com }
  *               password: { type: string, format: password, minLength: 8, example: Password123! }
- *               role: { type: string, enum: [adjuster, admin], example: adjuster }
+ *               role: { type: string, enum: [admin, member, lead], example: member }
  *     responses:
  *       201:
  *         description: User created
