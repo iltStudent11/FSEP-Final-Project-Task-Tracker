@@ -12,7 +12,7 @@ A Project Task Tracker — a line-of-business application for teams to manage pr
 - **Docs**: Builds and deploys documentation from `docs/` to GitHub Pages when docs-related changes are pushed to `main`. [View run history](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/pages.yml).
 
 <!-- PAGES-LINK:START -->
-📖 **Documentation site** — architecture & design docs, published from `docs/` via GitHub Pages.
+📖 **[Documentation site](https://iltstudent11.github.io/FSEP-Final-Project-Task-Tracker/)** — architecture & design docs, published from `docs/` via GitHub Pages.
 <!-- PAGES-LINK:END -->
 
 ## Project layout
