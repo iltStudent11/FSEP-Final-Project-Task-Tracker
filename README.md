@@ -115,6 +115,8 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit togeth
 
 All routes are mounted under `/api`. Every route except `/api/health` and `/api/auth/register`/`/login` requires a `Authorization: Bearer <token>` header.
 
+**Interactive docs:** with the server running, open `/api/docs` for a Swagger UI where you can browse and execute every endpoint below — log in via `POST /api/auth/login`, then click **Authorize** and paste the returned token to try authenticated requests. The raw OpenAPI spec is served at `/api/docs.json`.
+
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/api/health` | Server + database connectivity check |
