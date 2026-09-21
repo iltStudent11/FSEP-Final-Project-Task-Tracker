@@ -11,6 +11,79 @@ router.use(authenticate);
 
 const TASK_STATUSES = ["todo", "in-progress", "blocked", "done"];
 
+/**
+ * @openapi
+ * /tasks:
+ *   get:
+ *     tags: [Tasks]
+ *     summary: List tasks
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [todo, in-progress, blocked, done] }
+ *       - in: query
+ *         name: project
+ *         schema: { type: string }
+ *       - in: query
+ *         name: assignedTo
+ *         schema: { type: string }
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *         description: Matches against task number or title
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, minimum: 1, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+ *     responses:
+ *       200:
+ *         description: Paginated tasks
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 tasks:
+ *                   type: array
+ *                   items: { $ref: '#/components/schemas/Task' }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *   post:
+ *     tags: [Tasks]
+ *     summary: Create a task
+ *     description: >
+ *       Both `assignedTo` and `completedBy` are required when `status` is `done`.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [project, title, dueDate]
+ *             properties:
+ *               project: { type: string, description: Project id }
+ *               title: { type: string }
+ *               description: { type: string }
+ *               dueDate: { type: string, format: date }
+ *               status: { type: string, enum: [todo, in-progress, blocked, done], default: todo }
+ *               assignedTo: { type: string, description: User id }
+ *               completedBy: { type: string, description: User id }
+ *               estimateHours: { type: number, minimum: 0 }
+ *     responses:
+ *       201:
+ *         description: Task created (taskNumber is auto-generated)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 task: { $ref: '#/components/schemas/Task' }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.get(
   "/",
   validate([
@@ -63,6 +136,27 @@ router.get(
   },
 );
 
+/**
+ * @openapi
+ * /tasks/stats:
+ *   get:
+ *     tags: [Tasks]
+ *     summary: Aggregated task statistics
+ *     responses:
+ *       200:
+ *         description: Totals across all tasks
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalTasks: { type: integer }
+ *                 totalEstimateHours: { type: number }
+ *                 byStatus:
+ *                   type: object
+ *                   additionalProperties: { type: integer }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.get("/stats", async (_req: Request, res: Response) => {
   const [result] = await Task.aggregate([
     {
@@ -95,6 +189,80 @@ router.get("/stats", async (_req: Request, res: Response) => {
   });
 });
 
+/**
+ * @openapi
+ * /tasks/{id}:
+ *   get:
+ *     tags: [Tasks]
+ *     summary: Get a single task (project + assignee populated)
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Task
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 task: { $ref: '#/components/schemas/Task' }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *   put:
+ *     tags: [Tasks]
+ *     summary: Update a task
+ *     description: >
+ *       `assignedTo`/`completedBy` are locked once a task is `done`, and both are
+ *       required if the update sets (or keeps) `status: done`.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               project: { type: string }
+ *               title: { type: string }
+ *               description: { type: string }
+ *               dueDate: { type: string, format: date }
+ *               estimateHours: { type: number, minimum: 0 }
+ *               status: { type: string, enum: [todo, in-progress, blocked, done] }
+ *               assignedTo: { type: string }
+ *               completedBy: { type: string }
+ *     responses:
+ *       200:
+ *         description: Updated task
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 task: { $ref: '#/components/schemas/Task' }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *   delete:
+ *     tags: [Tasks]
+ *     summary: Delete a task
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       204: { description: Deleted }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get(
   "/:id",
   validate([param("id").isMongoId().withMessage("Invalid task id")]),
@@ -226,6 +394,40 @@ router.put(
   },
 );
 
+/**
+ * @openapi
+ * /tasks/{id}/notes:
+ *   post:
+ *     tags: [Tasks]
+ *     summary: Add a note to a task
+ *     description: "Appends a note authored by the authenticated user to the task's notes."
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [text]
+ *             properties:
+ *               text: { type: string }
+ *     responses:
+ *       201:
+ *         description: Note added — returns the full updated task
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 task: { $ref: '#/components/schemas/Task' }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.post(
   "/:id/notes",
   validate([
