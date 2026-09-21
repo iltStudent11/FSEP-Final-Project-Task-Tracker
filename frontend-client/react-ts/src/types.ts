@@ -53,6 +53,12 @@ export interface TaskNote {
   createdAt: string;
 }
 
+export interface Subtask {
+  _id: ObjectId;
+  text: string;
+  completed: boolean;
+}
+
 export interface Task {
   _id: ObjectId;
   taskNumber: string;
@@ -67,6 +73,8 @@ export interface Task {
   assignedTo?: ObjectId | User;
   completedBy?: ObjectId | User;
   notes: TaskNote[];
+  /** Completing every subtask auto-marks the task done; un-completing one moves a done task back to in-progress. */
+  subtasks: Subtask[];
   createdAt: string;
   updatedAt: string;
 }

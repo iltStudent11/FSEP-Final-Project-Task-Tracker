@@ -57,6 +57,14 @@ const definition: swaggerJSDoc.OAS3Definition = {
           createdAt: { type: "string", format: "date-time" },
         },
       },
+      Subtask: {
+        type: "object",
+        properties: {
+          _id: { type: "string" },
+          text: { type: "string", example: "Write tests" },
+          completed: { type: "boolean", default: false },
+        },
+      },
       Task: {
         type: "object",
         properties: {
@@ -78,6 +86,12 @@ const definition: swaggerJSDoc.OAS3Definition = {
             oneOf: [{ type: "string" }, { $ref: "#/components/schemas/User" }],
           },
           notes: { type: "array", items: { $ref: "#/components/schemas/TaskNote" } },
+          subtasks: {
+            type: "array",
+            description:
+              "Completing every subtask auto-marks the task done; un-completing one moves a done task back to in-progress.",
+            items: { $ref: "#/components/schemas/Subtask" },
+          },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
         },

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import Tasks from "./Tasks";
@@ -11,6 +11,7 @@ vi.mock("../api", () => ({
     get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
+    patch: vi.fn(),
     delete: vi.fn(),
   },
 }));
@@ -39,13 +40,16 @@ const baseTask: Task = {
   taskNumber: "TSK-1001",
   project: "proj-1",
   title: "1.2.3. GitHub Actions CI Pipeline",
-  description: "- Check out the code\n- Install dependencies",
   dueDate: new Date("2026-10-07").toISOString(),
   estimateHours: 6,
   status: "in-progress",
   assignedTo: "u-alice",
   completedBy: undefined,
   notes: [],
+  subtasks: [
+    { _id: "sub-1", text: "Check out the code", completed: false },
+    { _id: "sub-2", text: "Install dependencies", completed: true },
+  ],
   createdAt: new Date("2026-09-01").toISOString(),
   updatedAt: new Date("2026-09-01").toISOString(),
 };
@@ -104,6 +108,7 @@ describe("Tasks page", () => {
     mockInitialLoad();
     mockedApi.put.mockResolvedValue({ data: { task: baseTask } });
     mockedApi.post.mockResolvedValue({ data: { task: baseTask } });
+    mockedApi.patch.mockResolvedValue({ data: { task: baseTask } });
   });
 
   it("renders assignment columns", async () => {
@@ -125,6 +130,56 @@ describe("Tasks page", () => {
     expect(await screen.findByText(/task details/i)).toBeInTheDocument();
     expect(screen.getByText("Check out the code")).toBeInTheDocument();
     expect(screen.getByText("Install dependencies")).toBeInTheDocument();
+  });
+
+  it("toggles a subtask's completed state via checkbox", async () => {
+    const user = userEvent.setup();
+    renderTasks();
+
+    await screen.findByText("TSK-1001");
+    await user.click(screen.getByRole("button", { name: /1\.2\.3\. github actions ci pipeline/i }));
+    await screen.findByText(/task details/i);
+
+    const checkbox = screen.getByLabelText("Check out the code");
+    expect(checkbox).not.toBeChecked();
+
+    await user.click(checkbox);
+
+    await waitFor(() => {
+      expect(mockedApi.patch).toHaveBeenCalledWith("/tasks/task-1/subtasks/sub-1", {
+        completed: true,
+      });
+    });
+  });
+
+  it("shows a completed subtask as checked", async () => {
+    const user = userEvent.setup();
+    renderTasks();
+
+    await screen.findByText("TSK-1001");
+    await user.click(screen.getByRole("button", { name: /1\.2\.3\. github actions ci pipeline/i }));
+    await screen.findByText(/task details/i);
+
+    expect(screen.getByLabelText("Install dependencies")).toBeChecked();
+  });
+
+  it("adds a new subtask via the subtask form", async () => {
+    const user = userEvent.setup();
+    renderTasks();
+
+    await screen.findByText("TSK-1001");
+    await user.click(screen.getByRole("button", { name: /1\.2\.3\. github actions ci pipeline/i }));
+    await screen.findByText(/task details/i);
+
+    const input = screen.getByLabelText(/add a subtask to task tsk-1001/i);
+    await user.type(input, "Write docs");
+    await user.click(screen.getByRole("button", { name: /add subtask/i }));
+
+    await waitFor(() => {
+      expect(mockedApi.post).toHaveBeenCalledWith("/tasks/task-1/subtasks", {
+        text: "Write docs",
+      });
+    });
   });
 
   it("updates assignedTo from dropdown", async () => {
@@ -160,6 +215,55 @@ describe("Tasks page", () => {
 
     await waitFor(() => {
       expect(mockedApi.put).toHaveBeenCalledWith("/tasks/task-1", { status: "done" });
+    });
+  });
+
+  it("updates estimate hours on blur when changed", async () => {
+    const user = userEvent.setup();
+    renderTasks();
+
+    const input = await screen.findByLabelText(/estimate hours for task tsk-1001/i);
+    await user.clear(input);
+    await user.type(input, "8");
+    await user.tab();
+
+    await waitFor(() => {
+      expect(mockedApi.put).toHaveBeenCalledWith("/tasks/task-1", { estimateHours: 8 });
+    });
+  });
+
+  it("does not call the API when estimate hours is blurred unchanged", async () => {
+    const user = userEvent.setup();
+    renderTasks();
+
+    const input = await screen.findByLabelText(/estimate hours for task tsk-1001/i);
+    await user.click(input);
+    await user.tab();
+
+    expect(mockedApi.put).not.toHaveBeenCalled();
+  });
+
+  it("rejects a negative estimate hours value without calling the API", async () => {
+    const user = userEvent.setup();
+    renderTasks();
+
+    const input = await screen.findByLabelText(/estimate hours for task tsk-1001/i);
+    await user.clear(input);
+    await user.type(input, "-1");
+    await user.tab();
+
+    expect(await screen.findByText(/estimate hours must be a non-negative number/i)).toBeInTheDocument();
+    expect(mockedApi.put).not.toHaveBeenCalled();
+  });
+
+  it("updates due date when changed", async () => {
+    renderTasks();
+
+    const input = await screen.findByLabelText(/due date for task tsk-1001/i);
+    fireEvent.change(input, { target: { value: "2026-11-15" } });
+
+    await waitFor(() => {
+      expect(mockedApi.put).toHaveBeenCalledWith("/tasks/task-1", { dueDate: "2026-11-15" });
     });
   });
 

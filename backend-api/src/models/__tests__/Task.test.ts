@@ -161,4 +161,35 @@ describe("Task model", () => {
     expect(task.notes[0]?.text).toBe("Initial note");
     expect(task.notes[0]?.author.toString()).toBe(owner._id.toString());
   });
+
+  it("stores subtasks and defaults completed to false", async () => {
+    const owner = await createOwner("OwnerI");
+    const project = await createProject(owner._id.toString());
+
+    const task = await Task.create({
+      project: project._id,
+      title: "Task with subtasks",
+      dueDate: new Date("2026-03-09"),
+      subtasks: [{ text: "Write code" }, { text: "Write tests", completed: true }],
+    });
+
+    expect(task.subtasks).toHaveLength(2);
+    expect(task.subtasks[0]?.text).toBe("Write code");
+    expect(task.subtasks[0]?.completed).toBe(false);
+    expect(task.subtasks[1]?.completed).toBe(true);
+  });
+
+  it("rejects a subtask with no text", async () => {
+    const owner = await createOwner("OwnerJ");
+    const project = await createProject(owner._id.toString());
+
+    await expect(
+      Task.create({
+        project: project._id,
+        title: "Task with invalid subtask",
+        dueDate: new Date("2026-03-10"),
+        subtasks: [{ completed: false } as any],
+      }),
+    ).rejects.toThrow();
+  });
 });
