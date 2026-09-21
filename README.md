@@ -205,6 +205,23 @@ PROD_MONGO_PORT_WHEN_BOTH_UP=47017 ./Scripts/up-all.sh
 | `Scripts/down-prod.sh` | prod | `tasktracker-prod` | Stops prod stack |
 | `Scripts/status-prod.sh` | prod | `tasktracker-prod` | Shows prod stack status |
 
+### ECR helper scripts (Kubernetes/EKS)
+
+The `Scripts/` folder also includes helpers for cross-account ECR image pulls used by the `eks/` manifests:
+
+| Script/File | Purpose |
+|---|---|
+| `Scripts/fix-ecr-cross-account.sh` | Applies ECR repository resource policies in the **owner account** to allow pull access from another AWS account/principal |
+| `Scripts/ecr-consumer-pull-policy.json` | IAM policy document for the **consumer account** principal that performs image pulls |
+
+Example (run in owner account credentials):
+
+```bash
+./Scripts/fix-ecr-cross-account.sh us-east-1 <owner-account-id> <consumer-account-id> arn:aws:iam::<consumer-account-id>:user/<principal-name>
+```
+
+Then in the consumer account, attach `Scripts/ecr-consumer-pull-policy.json` (or equivalent permissions) and refresh the Kubernetes image pull secret.
+
 ## Running with Docker
 
 The whole stack (MongoDB, API, client) can also be run in containers instead of installing Node/MongoDB locally. Two Compose files are provided; both build `backend-api/Dockerfile` and `frontend-client/Dockerfile` and start a `mongo:7` container — pick one based on whether you want plain HTTP or HTTPS.
@@ -298,3 +315,60 @@ kubectl apply -f k8s/client.yaml
 If you change the Secret after `api`/`client` are already running, env vars are only injected at container start — re-apply the secret, then `kubectl rollout restart deployment/api -n task-tracker` (and/or `client`) to pick it up.
 
 To tear everything down: `kubectl delete namespace task-tracker` — this deletes the Deployments, Services, the Secret, **and** the `mongo-data` PVC (and its backing volume, since Docker Desktop's default StorageClass reclaim policy is `Delete`), so any seeded data is lost with it.
+
+## Running on EKS
+
+`eks/` contains AWS-EKS-oriented manifests for the same app stack, using:
+
+- namespace: `task-tracker`
+- services: `mongo-svc`, `backend-api-svc`, `frontend-client-svc` (LoadBalancer)
+- API/client images from ECR
+
+### 1) Point kubectl to your cluster
+
+```bash
+aws eks update-kubeconfig --region us-east-1 --name task-tracker-eks
+kubectl config current-context
+```
+
+### 2) Create namespace + image pull secret
+
+```bash
+kubectl apply -f eks/namespace.yml
+
+aws ecr get-login-password --region us-east-1 | kubectl -n task-tracker create secret docker-registry ecr-registry \
+   --docker-server=<your-account-id>.dkr.ecr.us-east-1.amazonaws.com \
+   --docker-username=AWS \
+   --docker-password="$(cat)" \
+   --dry-run=client -o yaml | kubectl apply -f -
+```
+
+### 3) Apply EKS manifests
+
+```bash
+kubectl apply -f eks/secrets.yml
+kubectl apply -f eks/mongo-deployment.yml
+kubectl apply -f eks/backend-api.yml
+kubectl apply -f eks/frontend-client.yml
+```
+
+### 4) Verify rollout + get public URL
+
+```bash
+kubectl -n task-tracker rollout status deployment/mongo
+kubectl -n task-tracker rollout status deployment/backend-api
+kubectl -n task-tracker rollout status deployment/frontend-client
+
+kubectl -n task-tracker get svc frontend-client-svc
+```
+
+Use the `EXTERNAL-IP`/hostname from `frontend-client-svc` as the app URL.
+
+### 5) Seed EKS Mongo data (optional)
+
+```bash
+kubectl -n task-tracker port-forward svc/mongo-svc 27017:27017
+MONGODB_URI=mongodb://127.0.0.1:27017/task-tracker make seed
+```
+
+Stop port-forward with `Ctrl-C` when done.

@@ -21,6 +21,8 @@ This starts the Vite dev server (prints the local URL, typically `http://localho
 
 Alternatively, run this client (and the API + MongoDB) in Docker instead of installing anything locally — see the root [README](../../README.md#running-with-docker). `frontend-client/Dockerfile` builds this app with Vite and serves it via nginx, which also handles the `/api/*` proxy that `vite.config.ts` handles in dev.
 
+For Kubernetes/EKS deployment paths (including external LoadBalancer access and ECR-backed images), see the root [README Kubernetes section](../../README.md#running-on-kubernetes) and [README EKS section](../../README.md#running-on-eks).
+
 To log in, use one of the accounts created by the backend's `npm run seed` (e.g. `admin@tasktracker.com` / `Admin123!`), or register a new account from `/register`.
 
 ## npm scripts
