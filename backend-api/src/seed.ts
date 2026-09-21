@@ -209,6 +209,41 @@ const LAB_GUIDE_TASKS = [
 const PROJECT_CATEGORIES = ["web", "mobile", "data"] as const;
 const TASK_STATUSES = ["todo", "in-progress", "blocked", "done"] as const;
 
+// The lab guide's bullet-point descriptions double as each task's subtask
+// checklist: split on newlines and strip the leading "- "/"❏ " bullet
+// markers (the real checkbox replaces that glyph in the UI).
+function parseSubtaskTexts(description: string): string[] {
+  return description
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => (line.startsWith("- ") ? line.slice(2) : line))
+    .map((line) => (line.startsWith("❏ ") ? line.slice(2) : line));
+}
+
+function buildSeedSubtasks(
+  description: string,
+  status: (typeof TASK_STATUSES)[number],
+): { text: string; completed: boolean }[] {
+  const texts = parseSubtaskTexts(description);
+  if (texts.length === 0) return [];
+
+  if (status === "done") {
+    return texts.map((text) => ({ text, completed: true }));
+  }
+
+  if (status === "in-progress") {
+    const completeCount = Math.floor(texts.length / 2);
+    return texts.map((text, index) => ({ text, completed: index < completeCount }));
+  }
+
+  if (status === "blocked" && texts.length > 1) {
+    return texts.map((text, index) => ({ text, completed: index === 0 }));
+  }
+
+  return texts.map((text) => ({ text, completed: false }));
+}
+
 async function seed(): Promise<void> {
   await connectDB();
 
@@ -276,6 +311,7 @@ async function seed(): Promise<void> {
     const status = TASK_STATUSES[index % TASK_STATUSES.length]!;
     const assignedTo = status === "todo" ? undefined : status === "done" ? admin._id : assignee._id;
     const completedBy = status === "done" ? admin._id : undefined;
+    const subtasks = taskSeed.description ? buildSeedSubtasks(taskSeed.description, status) : [];
 
     const taskPayload = {
       project: project._id,
@@ -283,7 +319,7 @@ async function seed(): Promise<void> {
       dueDate: new Date(`2026-10-${String((index % 28) + 1).padStart(2, "0")}`),
       estimateHours: 2 + (index % 8) * 2,
       status,
-      ...(taskSeed.description ? { description: taskSeed.description } : {}),
+      ...(subtasks.length > 0 ? { subtasks } : {}),
       ...(assignedTo ? { assignedTo } : {}),
       ...(completedBy ? { completedBy } : {}),
     };
