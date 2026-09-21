@@ -23,9 +23,9 @@ const definition: swaggerJSDoc.OAS3Definition = {
         type: "object",
         properties: {
           _id: { type: "string", example: "6710f1a2b3c4d5e6f7081234" },
-          name: { type: "string", example: "Alice Adjuster" },
+          name: { type: "string", example: "Alice Lead" },
           email: { type: "string", format: "email", example: "alice@tasktracker.com" },
-          role: { type: "string", enum: ["adjuster", "admin"], example: "adjuster" },
+          role: { type: "string", enum: ["admin", "member", "lead"], example: "lead" },
           createdAt: { type: "string", format: "date-time" },
         },
       },
