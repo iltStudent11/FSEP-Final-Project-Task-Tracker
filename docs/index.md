@@ -1,4 +1,4 @@
-# FSEP Phase 3 Capstone Project — Documentation
+# FSEP Final Project Task Tracker — Documentation
 
 - [Architecture](ARCHITECTURE.md)
 - [Design](DESIGN.md)
