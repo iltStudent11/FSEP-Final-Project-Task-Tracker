@@ -12,6 +12,44 @@ router.use(authenticate);
 const TASK_STATUSES = ["todo", "in-progress", "blocked", "done"];
 
 /**
+ * Reconciles a task's status with its subtasks: completing every subtask
+ * marks the task done (auto-assigning the current user if assignedTo/
+ * completedBy aren't already set), and un-completing one moves a done task
+ * back to in-progress. Returns an error message (and leaves the task
+ * untouched) if the caller explicitly asked for `done` while subtasks are
+ * still incomplete; returns null otherwise. No-ops for tasks with no
+ * subtasks, so existing behavior is unchanged for them.
+ */
+function applySubtaskAutomation(
+  task: {
+    status: TaskStatus;
+    subtasks: { completed: boolean }[];
+    assignedTo?: unknown;
+    completedBy?: unknown;
+  },
+  requestedStatus: TaskStatus | undefined,
+  currentUserId: unknown,
+): string | null {
+  if (task.subtasks.length === 0) return null;
+
+  const allCompleted = task.subtasks.every((subtask) => subtask.completed);
+
+  if (requestedStatus === "done" && !allCompleted) {
+    return "All subtasks must be completed before marking this task done";
+  }
+
+  if (allCompleted) {
+    if (!task.assignedTo) task.assignedTo = currentUserId;
+    if (!task.completedBy) task.completedBy = currentUserId;
+    task.status = "done";
+  } else if (task.status === "done") {
+    task.status = "in-progress";
+  }
+
+  return null;
+}
+
+/**
  * @openapi
  * /tasks:
  *   get:
@@ -55,7 +93,9 @@ const TASK_STATUSES = ["todo", "in-progress", "blocked", "done"];
  *     tags: [Tasks]
  *     summary: Create a task
  *     description: >
- *       Both `assignedTo` and `completedBy` are required when `status` is `done`.
+ *       Both `assignedTo` and `completedBy` are required when `status` is `done`. If
+ *       `subtasks` are given and `status: done` is requested without every subtask
+ *       completed, the request is rejected.
  *     requestBody:
  *       required: true
  *       content:
@@ -72,6 +112,11 @@ const TASK_STATUSES = ["todo", "in-progress", "blocked", "done"];
  *               assignedTo: { type: string, description: User id }
  *               completedBy: { type: string, description: User id }
  *               estimateHours: { type: number, minimum: 0 }
+ *               subtasks:
+ *                 type: array
+ *                 description: Subtask text lines; each is created incomplete.
+ *                 items: { type: string }
+ *                 example: ["Write code", "Write tests"]
  *     responses:
  *       201:
  *         description: Task created (taskNumber is auto-generated)
@@ -217,7 +262,11 @@ router.get("/stats", async (_req: Request, res: Response) => {
  *     summary: Update a task
  *     description: >
  *       `assignedTo`/`completedBy` are locked once a task is `done`, and both are
- *       required if the update sets (or keeps) `status: done`.
+ *       required if the update sets (or keeps) `status: done`. If the task has
+ *       subtasks, requesting `status: done` is rejected unless every subtask is
+ *       already completed; conversely, completing every subtask (via the subtask
+ *       endpoint) auto-marks the task done, and un-completing one moves it back
+ *       to `in-progress`.
  *     parameters:
  *       - in: path
  *         name: id
@@ -295,6 +344,12 @@ router.post(
       .optional()
       .isFloat({ min: 0 })
       .withMessage("Estimate hours must be a non-negative number"),
+    body("subtasks").optional().isArray().withMessage("subtasks must be an array"),
+    body("subtasks.*")
+      .isString()
+      .trim()
+      .notEmpty()
+      .withMessage("Each subtask must be a non-empty string"),
   ]),
   async (req: Request, res: Response) => {
     const {
@@ -306,9 +361,22 @@ router.post(
       status = "todo",
       assignedTo,
       completedBy,
+      subtasks: subtaskTexts,
     } = req.body;
 
-    if (status === "done" && (!assignedTo || !completedBy)) {
+    const subtasks = ((subtaskTexts ?? []) as string[]).map((text) => ({
+      text,
+      completed: false,
+    }));
+
+    const draft = { status, subtasks, assignedTo, completedBy };
+    const automationError = applySubtaskAutomation(draft, status, req.user!._id);
+    if (automationError) {
+      res.status(400).json({ message: automationError });
+      return;
+    }
+
+    if (draft.status === "done" && (!draft.assignedTo || !draft.completedBy)) {
       res.status(400).json({
         message: "Both assignedTo and completedBy are required when status is done",
       });
@@ -321,9 +389,10 @@ router.post(
       description,
       dueDate,
       estimateHours,
-      status,
-      assignedTo,
-      completedBy,
+      status: draft.status,
+      assignedTo: draft.assignedTo,
+      completedBy: draft.completedBy,
+      subtasks,
     });
 
     res.status(201).json({ task });
@@ -380,6 +449,13 @@ router.put(
     if ("status" in req.body) task.status = req.body.status;
     if ("assignedTo" in req.body) task.assignedTo = req.body.assignedTo || undefined;
     if ("completedBy" in req.body) task.completedBy = req.body.completedBy || undefined;
+
+    const requestedStatus = "status" in req.body ? (req.body.status as TaskStatus) : undefined;
+    const automationError = applySubtaskAutomation(task, requestedStatus, req.user!._id);
+    if (automationError) {
+      res.status(400).json({ message: automationError });
+      return;
+    }
 
     if (task.status === "done" && (!task.assignedTo || !task.completedBy)) {
       res.status(400).json({
@@ -450,6 +526,138 @@ router.post(
     await task.save();
 
     res.status(201).json({ task });
+  },
+);
+
+/**
+ * @openapi
+ * /tasks/{id}/subtasks:
+ *   post:
+ *     tags: [Tasks]
+ *     summary: Add a subtask to a task
+ *     description: >
+ *       Appends a new, incomplete subtask. If the task was auto-marked `done` because
+ *       every previous subtask was completed, adding a new incomplete one moves it back
+ *       to `in-progress`.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [text]
+ *             properties:
+ *               text: { type: string }
+ *     responses:
+ *       201:
+ *         description: Subtask added — returns the full updated task
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 task: { $ref: '#/components/schemas/Task' }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.post(
+  "/:id/subtasks",
+  validate([
+    param("id").isMongoId().withMessage("Invalid task id"),
+    body("text").trim().notEmpty().withMessage("Subtask text is required"),
+  ]),
+  async (req: Request, res: Response) => {
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+      res.status(404).json({ message: "Task not found" });
+      return;
+    }
+
+    task.subtasks.push({ text: req.body.text, completed: false });
+    applySubtaskAutomation(task, undefined, req.user!._id);
+
+    await task.save();
+
+    res.status(201).json({ task });
+  },
+);
+
+/**
+ * @openapi
+ * /tasks/{id}/subtasks/{subtaskId}:
+ *   patch:
+ *     tags: [Tasks]
+ *     summary: Mark a subtask complete or incomplete
+ *     description: >
+ *       Completing every subtask automatically marks the task `done` (auto-assigning
+ *       the current user if `assignedTo`/`completedBy` aren't already set); un-completing
+ *       one moves a `done` task back to `in-progress`.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *       - in: path
+ *         name: subtaskId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [completed]
+ *             properties:
+ *               completed: { type: boolean }
+ *     responses:
+ *       200:
+ *         description: Updated task
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 task: { $ref: '#/components/schemas/Task' }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.patch(
+  "/:id/subtasks/:subtaskId",
+  validate([
+    param("id").isMongoId().withMessage("Invalid task id"),
+    param("subtaskId").isMongoId().withMessage("Invalid subtask id"),
+    body("completed").isBoolean().withMessage("completed must be a boolean"),
+  ]),
+  async (req: Request, res: Response) => {
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+      res.status(404).json({ message: "Task not found" });
+      return;
+    }
+
+    const subtask = task.subtasks.id(req.params.subtaskId as string);
+
+    if (!subtask) {
+      res.status(404).json({ message: "Subtask not found" });
+      return;
+    }
+
+    subtask.completed = req.body.completed;
+    applySubtaskAutomation(task, undefined, req.user!._id);
+
+    await task.save();
+
+    res.status(200).json({ task });
   },
 );
 
