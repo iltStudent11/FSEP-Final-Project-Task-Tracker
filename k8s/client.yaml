@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: client
-  namespace: policy-claims
+  namespace: task-tracker
 spec:
   replicas: 1
   selector:
@@ -21,13 +21,13 @@ spec:
             - containerPort: 80
           env:
             - name: API_UPSTREAM
-              value: api.policy-claims.svc.cluster.local:3000
+              value: api.task-tracker.svc.cluster.local:3000
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: client
-  namespace: policy-claims
+  namespace: task-tracker
 spec:
   type: NodePort
   selector:

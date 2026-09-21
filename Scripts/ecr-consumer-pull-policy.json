@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ECRAuthToken",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ECRPullFromOwnerRepos",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:DescribeImages",
+        "ecr:DescribeRepositories",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:ListImages"
+      ],
+      "Resource": [
+        "arn:aws:ecr:us-east-1:717279729058:repository/fsep-cap3-backend-api",
+        "arn:aws:ecr:us-east-1:717279729058:repository/fsep-cap3-frontend-client"
+      ]
+    }
+  ]
+}

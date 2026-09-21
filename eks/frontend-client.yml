@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend-client
-  namespace: policy-claims
+  namespace: task-tracker
 spec:
   replicas: 2
   selector:
@@ -13,9 +13,11 @@ spec:
       labels:
         app: frontend-client
     spec:
+      imagePullSecrets:
+        - name: ecr-registry
       containers:
         - name: client
-          image: 717279729058.dkr.ecr.us-east-1.amazonaws.com/fsep-cap3-frontend-client:1.0
+          image: 977099015675.dkr.ecr.us-east-1.amazonaws.com/fsep-cap3-frontend-client:1.0
           imagePullPolicy: Always
           # nginx in this image always listens on 80 (see
           # frontend-client/Dockerfile's EXPOSE 80) — PORT/NODE_ENV have no
@@ -27,17 +29,25 @@ spec:
             # frontend-client/Dockerfile's ENV API_UPSTREAM) so nginx's
             # /api/ proxy resolves to the real Service in this cluster.
             - name: API_UPSTREAM
-              value: backend-api-svc.policy-claims.svc.cluster.local:3000
+              value: backend-api-svc.task-tracker.svc.cluster.local:3000
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: frontend-client-svc
-  namespace: policy-claims
+  namespace: task-tracker
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-east-1:977099015675:certificate/f28a3270-1c3c-4511-a37c-bfa84d15f958
 spec:
   selector:
     app: frontend-client
   ports:
     - port: 80
+      name: http
+      targetPort: 80
+    - port: 443
+      name: https
       targetPort: 80
   type: LoadBalancer

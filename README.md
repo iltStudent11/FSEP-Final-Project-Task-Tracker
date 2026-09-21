@@ -252,12 +252,12 @@ To stop either stack: `docker compose [-f docker-compose.prod.yml] down` (add `-
 
 ## Running on Kubernetes
 
-`k8s/` has manifests for the same stack — MongoDB, API, client — as an alternative to either Compose file, for exercising the app in a real cluster (e.g. Docker Desktop's built-in Kubernetes). All resources live in a dedicated `policy-claims` namespace.
+`k8s/` has manifests for the same stack — MongoDB, API, client — as an alternative to either Compose file, for exercising the app in a real cluster (e.g. Docker Desktop's built-in Kubernetes). All resources live in a dedicated `task-tracker` namespace.
 
 | File | Creates |
 |---|---|
-| `k8s/namespace.yaml` | The `policy-claims` namespace |
-| `k8s/secrets.yaml` | Template for the `policy-claims-secrets` Secret (`PORT`, `NODE_ENV`, `JWT_SECRET`, `MONGODB_URI`) — placeholders only, see below |
+| `k8s/namespace.yaml` | The `task-tracker` namespace |
+| `k8s/secrets.yaml` | Template for the `task-tracker-secrets` Secret (`PORT`, `NODE_ENV`, `JWT_SECRET`, `MONGODB_URI`) — placeholders only, see below |
 | `k8s/mongo.yaml` | `mongo:7` Deployment (1 replica) + a 1Gi `ReadWriteOnce` PVC mounted at `/data/db` + a ClusterIP Service on 27017 |
 | `k8s/api.yaml` | API Deployment (2 replicas), env loaded from the Secret, readiness/liveness probes on `GET /api/health`, ClusterIP Service on 3000 |
 | `k8s/client.yaml` | Client Deployment (1 replica), NodePort Service exposing port 80 as `30080` |
@@ -274,12 +274,12 @@ docker build -t p3-capstone-client:latest ./frontend-client
 ```bash
 kubectl apply -f k8s/namespace.yaml
 
-kubectl create secret generic policy-claims-secrets \
-  --namespace policy-claims \
+kubectl create secret generic task-tracker-secrets \
+   --namespace task-tracker \
   --from-literal=PORT=3000 \
   --from-literal=NODE_ENV=production \
   --from-literal=JWT_SECRET="$(grep -oP '(?<=^JWT_SECRET=).*' backend-api/.env | tr -d '"')" \
-   --from-literal=MONGODB_URI="mongodb://mongo.policy-claims.svc.cluster.local:27017/task-tracker" \
+   --from-literal=MONGODB_URI="mongodb://mongo.task-tracker.svc.cluster.local:27017/task-tracker" \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
@@ -291,8 +291,8 @@ kubectl apply -f k8s/api.yaml
 kubectl apply -f k8s/client.yaml
 ```
 
-**4. Access the app** at `http://localhost:30080` (Docker Desktop maps NodePort services to `localhost` automatically). To reach MongoDB directly (e.g. from Compass), it's ClusterIP-only, so tunnel it first: `kubectl port-forward svc/mongo -n policy-claims 27017:27017`, then connect to `mongodb://localhost:27017`.
+**4. Access the app** at `http://localhost:30080` (Docker Desktop maps NodePort services to `localhost` automatically). To reach MongoDB directly (e.g. from Compass), it's ClusterIP-only, so tunnel it first: `kubectl port-forward svc/mongo -n task-tracker 27017:27017`, then connect to `mongodb://localhost:27017`.
 
-If you change the Secret after `api`/`client` are already running, env vars are only injected at container start — re-apply the secret, then `kubectl rollout restart deployment/api -n policy-claims` (and/or `client`) to pick it up.
+If you change the Secret after `api`/`client` are already running, env vars are only injected at container start — re-apply the secret, then `kubectl rollout restart deployment/api -n task-tracker` (and/or `client`) to pick it up.
 
-To tear everything down: `kubectl delete namespace policy-claims` — this deletes the Deployments, Services, the Secret, **and** the `mongo-data` PVC (and its backing volume, since Docker Desktop's default StorageClass reclaim policy is `Delete`), so any seeded data is lost with it.
+To tear everything down: `kubectl delete namespace task-tracker` — this deletes the Deployments, Services, the Secret, **and** the `mongo-data` PVC (and its backing volume, since Docker Desktop's default StorageClass reclaim policy is `Delete`), so any seeded data is lost with it.
