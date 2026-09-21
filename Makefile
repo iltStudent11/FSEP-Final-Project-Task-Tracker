@@ -30,7 +30,7 @@ install-api:
 install-client:
 	cd frontend-client/react-ts && npm install
 
-## Reset and repopulate the local database with sample users/policies/claims.
+## Reset and repopulate the local database with sample users/projects/tasks.
 ## Requires a MongoDB instance reachable per backend-api/.env's MONGODB_URI.
 seed: mongo-up
 	cd backend-api && npm run seed
