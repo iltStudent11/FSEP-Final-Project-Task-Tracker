@@ -8,6 +8,12 @@ export interface ITaskNote {
   createdAt: Date;
 }
 
+export interface ISubtask {
+  _id: Types.ObjectId;
+  text: string;
+  completed: boolean;
+}
+
 export interface ITask extends Document {
   taskNumber: string;
   project: Types.ObjectId;
@@ -19,6 +25,7 @@ export interface ITask extends Document {
   assignedTo?: Types.ObjectId;
   completedBy?: Types.ObjectId;
   notes: Types.DocumentArray<ITaskNote>;
+  subtasks: Types.DocumentArray<ISubtask>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,6 +51,18 @@ const taskNoteSchema = new Schema<ITaskNote>(
   },
   { _id: false },
 );
+
+const subtaskSchema = new Schema<ISubtask>({
+  text: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  completed: {
+    type: Boolean,
+    default: false,
+  },
+});
 
 const taskSchema = new Schema<ITask>(
   {
@@ -86,6 +105,7 @@ const taskSchema = new Schema<ITask>(
       ref: "User",
     },
     notes: [taskNoteSchema],
+    subtasks: [subtaskSchema],
   },
   { timestamps: true },
 );
