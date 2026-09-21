@@ -2,8 +2,8 @@
 
 A Project Task Tracker — a line-of-business application for teams to manage projects, tasks, and delivery progress.
 
-[![CI](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/ci.yml/badge.svg)](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/ci.yml)
-[![Docs](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/pages.yml/badge.svg)](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/pages.yml)
+[![CI](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/ci.yml/badge.svg)]([text](https://github.com/iltStudent11/FSEP-Final-Project-Task-Tracker/actions/workflows/ci.yml))
+[![Docs](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/pages.yml/badge.svg)]([text](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions/workflows/pages.yml))
 [![Actions](https://img.shields.io/badge/Actions-Dashboard-2088FF?logo=githubactions&logoColor=white)](https://github.com/iltstudent11/FSEP-Final-Project-Task-Tracket/actions)
 
 ## Build Status
