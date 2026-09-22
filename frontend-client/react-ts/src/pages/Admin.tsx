@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 import { getErrorMessage } from "../errorMessage";
-import type { User, UserRole, UsersResponse } from "../types";
+import type { AuditEventType, AuditLog, AuditLogsResponse, User, UserRole, UsersResponse } from "../types";
 
 type UserDraft = {
   name: string;
@@ -18,6 +18,13 @@ export default function Admin() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [auditLoading, setAuditLoading] = useState(true);
+  const [auditError, setAuditError] = useState<string | null>(null);
+  const [auditUserFilter, setAuditUserFilter] = useState<string>("");
+  const [auditEventType, setAuditEventType] = useState<AuditEventType | "">("");
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditTotalPages, setAuditTotalPages] = useState(1);
 
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [draft, setDraft] = useState<UserDraft | null>(null);
@@ -53,6 +60,45 @@ export default function Admin() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAuditLogs() {
+      setAuditLoading(true);
+      setAuditError(null);
+
+      try {
+        const response = await api.get<AuditLogsResponse>("/audit", {
+          params: {
+            page: auditPage,
+            limit: 20,
+            user: auditUserFilter || undefined,
+            eventType: auditEventType || undefined,
+          },
+        });
+
+        if (!cancelled) {
+          setAuditLogs(response.data.logs);
+          setAuditTotalPages(response.data.pagination.pages);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setAuditError(getErrorMessage(err));
+        }
+      } finally {
+        if (!cancelled) {
+          setAuditLoading(false);
+        }
+      }
+    }
+
+    void loadAuditLogs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [auditEventType, auditPage, auditUserFilter]);
 
   function startEditing(user: User) {
     setEditingUserId(user._id);
@@ -134,7 +180,7 @@ export default function Admin() {
         <h1>Admin</h1>
       </header>
 
-      <p className="status-note">Manage user profiles, roles, and access.</p>
+      <p className="status-note">Manage user profiles, roles, access, and audit logs.</p>
 
       {error && (
         <p role="alert" className="form-error">
@@ -270,6 +316,111 @@ export default function Admin() {
           </table>
         </div>
       )}
+
+      <div className="card" style={{ marginTop: "1.5rem" }}>
+        <h2>User Audit Log</h2>
+
+        <div className="claims-filters" style={{ marginBottom: "1rem" }}>
+          <select
+            aria-label="Filter audit logs by user"
+            className="field-select"
+            value={auditUserFilter}
+            onChange={(event) => {
+              setAuditUserFilter(event.target.value);
+              setAuditPage(1);
+            }}
+          >
+            <option value="">All users</option>
+            {users.map((user) => (
+              <option key={user._id} value={user._id}>
+                {user.name} ({user.email})
+              </option>
+            ))}
+          </select>
+
+          <select
+            aria-label="Filter audit logs by event type"
+            className="field-select"
+            value={auditEventType}
+            onChange={(event) => {
+              setAuditEventType(event.target.value as AuditEventType | "");
+              setAuditPage(1);
+            }}
+          >
+            <option value="">All event types</option>
+            <option value="auth">auth</option>
+            <option value="navigation">navigation</option>
+            <option value="action">action</option>
+          </select>
+        </div>
+
+        {auditError && (
+          <p role="alert" className="form-error">
+            {auditError}
+          </p>
+        )}
+
+        {auditLoading ? (
+          <p>Loading audit logs…</p>
+        ) : (
+          <>
+            <div className="table-scroll">
+              <table className="data-table" aria-label="Audit log table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Event Type</th>
+                    <th>Action</th>
+                    <th>Path</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6}>No audit logs found.</td>
+                    </tr>
+                  ) : (
+                    auditLogs.map((log) => (
+                      <tr key={log._id}>
+                        <td>{formatDate(log.createdAt)}</td>
+                        <td>{log.actorEmail}</td>
+                        <td>{log.actorRole}</td>
+                        <td>{log.eventType}</td>
+                        <td>{log.action}</td>
+                        <td>{log.route ?? "—"}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="pagination-controls">
+              <button
+                type="button"
+                className="btn"
+                disabled={auditPage <= 1}
+                onClick={() => setAuditPage((page) => Math.max(1, page - 1))}
+              >
+                Previous
+              </button>
+              <span>
+                Page {auditPage} of {auditTotalPages}
+              </span>
+              <button
+                type="button"
+                className="btn"
+                disabled={auditPage >= auditTotalPages}
+                onClick={() => setAuditPage((page) => Math.min(auditTotalPages, page + 1))}
+              >
+                Next
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </section>
   );
 }

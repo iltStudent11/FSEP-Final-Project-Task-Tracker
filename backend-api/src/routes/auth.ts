@@ -4,6 +4,7 @@ import User from "../models/User";
 import { authenticate, authorizeRoles } from "../middleware/auth";
 import { validate } from "../middleware/validate";
 import { generateToken, getTokenTimestamps } from "../utils/token";
+import { logAuditEvent } from "../utils/audit";
 
 const router = Router();
 
@@ -121,9 +122,42 @@ router.post(
     const token = generateToken(user);
     const { expiresAt } = getTokenTimestamps(token);
 
+    await logAuditEvent({
+      req,
+      actor: user,
+      eventType: "auth",
+      action: "User login",
+      targetType: "user",
+      targetId: user._id.toString(),
+      details: {
+        email: user.email,
+      },
+    });
+
     res.status(200).json({ token, expiresAt, user });
   },
 );
+
+router.post("/logout", authenticate, async (req: Request, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ message: "Missing or malformed authorization header" });
+    return;
+  }
+
+  await logAuditEvent({
+    req,
+    actor: req.user,
+    eventType: "auth",
+    action: "User logout",
+    targetType: "user",
+    targetId: req.user._id.toString(),
+    details: {
+      email: req.user.email,
+    },
+  });
+
+  res.status(200).json({ ok: true });
+});
 
 /**
  * @openapi

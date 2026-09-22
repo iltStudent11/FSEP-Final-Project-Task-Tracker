@@ -151,6 +151,30 @@ export interface UsersResponse {
   users: User[];
 }
 
+export type AuditEventType = "auth" | "navigation" | "action";
+
+export interface AuditLog {
+  _id: ObjectId;
+  actor: ObjectId;
+  actorEmail: string;
+  actorRole: UserRole;
+  eventType: AuditEventType;
+  action: string;
+  route?: string;
+  method?: string;
+  targetType?: string;
+  targetId?: string;
+  details?: Record<string, unknown>;
+  ip?: string;
+  userAgent?: string;
+  createdAt: string;
+}
+
+export interface AuditLogsResponse {
+  logs: AuditLog[];
+  pagination: Pagination;
+}
+
 // ---------------------------------------------------------------------------
 // Health check
 // ---------------------------------------------------------------------------

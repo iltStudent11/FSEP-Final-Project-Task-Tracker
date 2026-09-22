@@ -6,6 +6,8 @@ import authRouter from "./routes/auth";
 import projectsRouter from "./routes/projects";
 import tasksRouter from "./routes/tasks";
 import dashboardRouter from "./routes/dashboard";
+import auditRouter from "./routes/audit";
+import { trackAuditActions } from "./middleware/audit";
 import { errorHandler } from "./middleware/errorHandler";
 import { swaggerSpec } from "./swagger";
 
@@ -21,6 +23,7 @@ export function createApp() {
 
   app.use(cors());
   app.use(express.json());
+  app.use(trackAuditActions);
 
   app.get("/api/docs.json", (_req: Request, res: Response) => {
     res.status(200).json(swaggerSpec);
@@ -75,6 +78,7 @@ export function createApp() {
   app.use("/api/projects", projectsRouter);
   app.use("/api/tasks", tasksRouter);
   app.use("/api/dashboard", dashboardRouter);
+  app.use("/api/audit", auditRouter);
 
   app.use((_req: Request, res: Response) => {
     res.status(404).json({ message: "Not found" });
