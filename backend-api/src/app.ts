@@ -6,6 +6,7 @@ import authRouter from "./routes/auth";
 import projectsRouter from "./routes/projects";
 import tasksRouter from "./routes/tasks";
 import dashboardRouter from "./routes/dashboard";
+import adminRouter from "./routes/admin";
 import { errorHandler } from "./middleware/errorHandler";
 import { swaggerSpec } from "./swagger";
 
@@ -20,7 +21,8 @@ export function createApp() {
   const app = express();
 
   app.use(cors());
-  app.use(express.json());
+  // Default 100kb limit is too small for a full-database backup/restore payload.
+  app.use(express.json({ limit: "20mb" }));
 
   app.get("/api/docs.json", (_req: Request, res: Response) => {
     res.status(200).json(swaggerSpec);
@@ -75,6 +77,7 @@ export function createApp() {
   app.use("/api/projects", projectsRouter);
   app.use("/api/tasks", tasksRouter);
   app.use("/api/dashboard", dashboardRouter);
+  app.use("/api/admin", adminRouter);
 
   app.use((_req: Request, res: Response) => {
     res.status(404).json({ message: "Not found" });
