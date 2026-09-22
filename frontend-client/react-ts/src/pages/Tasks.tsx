@@ -42,8 +42,10 @@ export default function Tasks() {
   const [formTitle, setFormTitle] = useState("");
   const [formDueDate, setFormDueDate] = useState("");
   const [formEstimateHours, setFormEstimateHours] = useState("");
+  const [formSubtasksText, setFormSubtasksText] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [suggestingSubtasks, setSuggestingSubtasks] = useState(false);
 
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [noteError, setNoteError] = useState<string | null>(null);
@@ -271,7 +273,30 @@ export default function Tasks() {
     setFormTitle("");
     setFormDueDate("");
     setFormEstimateHours("");
+    setFormSubtasksText("");
     setFormError(null);
+  }
+
+  async function handleSuggestSubtasks() {
+    const title = formTitle.trim();
+    if (!title) {
+      setFormError("Enter a task title first to generate AI subtasks");
+      return;
+    }
+
+    setSuggestingSubtasks(true);
+    setFormError(null);
+
+    try {
+      const response = await api.post<{ subtasks: string[] }>("/tasks/ai-suggest-subtasks", {
+        title,
+      });
+      setFormSubtasksText(response.data.subtasks.join("\n"));
+    } catch (err) {
+      setFormError(getErrorMessage(err));
+    } finally {
+      setSuggestingSubtasks(false);
+    }
   }
 
   async function handleCreateTask(event: SubmitEvent<HTMLFormElement>) {
@@ -280,11 +305,17 @@ export default function Tasks() {
     setSubmitting(true);
 
     try {
+      const subtasks = formSubtasksText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+
       await api.post("/tasks", {
         project: formProject,
         title: formTitle,
         dueDate: formDueDate,
         estimateHours: formEstimateHours ? Number(formEstimateHours) : undefined,
+        subtasks,
       });
       resetForm();
       setShowNewTaskForm(false);
@@ -343,6 +374,14 @@ export default function Tasks() {
               value={formTitle}
               onChange={(event) => setFormTitle(event.target.value)}
             />
+            <button
+              type="button"
+              className="btn"
+              onClick={() => void handleSuggestSubtasks()}
+              disabled={suggestingSubtasks}
+            >
+              {suggestingSubtasks ? "Generating…" : "AI Suggest Subtasks"}
+            </button>
           </div>
 
           <div className="new-claim-form-field">
@@ -365,6 +404,17 @@ export default function Tasks() {
               step="0.5"
               value={formEstimateHours}
               onChange={(event) => setFormEstimateHours(event.target.value)}
+            />
+          </div>
+
+          <div className="new-claim-form-field">
+            <label htmlFor="task-subtasks">Subtasks (one per line)</label>
+            <textarea
+              id="task-subtasks"
+              rows={5}
+              value={formSubtasksText}
+              onChange={(event) => setFormSubtasksText(event.target.value)}
+              placeholder="Use AI Suggest Subtasks or type your own list"
             />
           </div>
 

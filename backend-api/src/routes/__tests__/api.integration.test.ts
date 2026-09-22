@@ -574,6 +574,32 @@ describe("API integration", () => {
       expect(response.status).toBe(404);
       expect(response.body.message).toBe("Subtask not found");
     });
+
+    it("returns AI subtask suggestions from a task title", async () => {
+      const { token } = await setupTaskContext();
+
+      const response = await request(app)
+        .post("/api/tasks/ai-suggest-subtasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          title: "Build login API",
+          description: "Add validation and auth checks",
+        });
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.subtasks)).toBe(true);
+      expect(response.body.subtasks.length).toBeGreaterThanOrEqual(3);
+      expect(response.body.subtasks.join(" ").toLowerCase()).toContain("auth");
+    });
+
+    it("rejects AI subtask suggestions when unauthenticated", async () => {
+      const response = await request(app)
+        .post("/api/tasks/ai-suggest-subtasks")
+        .send({ title: "Build login API" });
+
+      expect(response.status).toBe(401);
+      expect(response.body.message).toBe("Missing or malformed authorization header");
+    });
   });
 
   describe("dashboard routes", () => {

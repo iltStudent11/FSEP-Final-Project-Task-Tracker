@@ -320,4 +320,85 @@ describe("Tasks page", () => {
       expect(screen.getByText(/task details/i)).toBeInTheDocument();
     });
   });
+
+  it("generates AI subtasks and includes them when creating a task", async () => {
+    const user = userEvent.setup();
+
+    mockedApi.post.mockResolvedValueOnce({
+      data: {
+        subtasks: [
+          "Clarify acceptance criteria and edge cases",
+          "Implement endpoint/service logic",
+        ],
+      },
+    });
+    mockedApi.post.mockResolvedValueOnce({ data: { task: baseTask } });
+
+    renderTasks();
+
+    await user.click(await screen.findByRole("button", { name: /new task/i }));
+
+    await user.selectOptions(screen.getByLabelText(/project/i), "proj-1");
+    await user.type(screen.getByLabelText(/task title/i), "Build login API");
+    await user.type(screen.getByLabelText("Due Date"), "2026-12-01");
+
+    await user.click(screen.getByRole("button", { name: /ai suggest subtasks/i }));
+
+    await waitFor(() => {
+      expect(mockedApi.post).toHaveBeenCalledWith("/tasks/ai-suggest-subtasks", {
+        title: "Build login API",
+      });
+    });
+
+    await user.click(screen.getByRole("button", { name: /create task/i }));
+
+    await waitFor(() => {
+      expect(mockedApi.post).toHaveBeenCalledWith("/tasks", {
+        project: "proj-1",
+        title: "Build login API",
+        dueDate: "2026-12-01",
+        estimateHours: undefined,
+        subtasks: [
+          "Clarify acceptance criteria and edge cases",
+          "Implement endpoint/service logic",
+        ],
+      });
+    });
+  });
+
+  it("keeps manually entered subtasks when AI suggestions fail", async () => {
+    const user = userEvent.setup();
+
+    mockedApi.post.mockRejectedValueOnce({
+      response: { data: { message: "Suggestion service unavailable" } },
+    });
+
+    renderTasks();
+
+    await user.click(await screen.findByRole("button", { name: /new task/i }));
+
+    await user.selectOptions(screen.getByLabelText(/project/i), "proj-1");
+    await user.type(screen.getByLabelText(/task title/i), "Build login API");
+    await user.type(screen.getByLabelText("Due Date"), "2026-12-01");
+    await user.type(
+      screen.getByLabelText(/subtasks \(one per line\)/i),
+      "Write endpoint\nAdd tests",
+    );
+
+    await user.click(screen.getByRole("button", { name: /ai suggest subtasks/i }));
+
+    expect(await screen.findByText(/something went wrong\. please try again\./i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /create task/i }));
+
+    await waitFor(() => {
+      expect(mockedApi.post).toHaveBeenCalledWith("/tasks", {
+        project: "proj-1",
+        title: "Build login API",
+        dueDate: "2026-12-01",
+        estimateHours: undefined,
+        subtasks: ["Write endpoint", "Add tests"],
+      });
+    });
+  });
 });

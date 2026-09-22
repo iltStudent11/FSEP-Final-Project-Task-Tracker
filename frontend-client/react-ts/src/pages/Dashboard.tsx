@@ -36,12 +36,14 @@ export default function Dashboard() {
     async function loadStats() {
       setLoading(true);
       setError(null);
+      setStandup(null);
 
       try {
         const [statsResponse, standupResponse] = await Promise.allSettled([
           api.get<DashboardStats>("/dashboard"),
           api.get<AiStandupSummary>("/dashboard/ai-standup"),
         ]);
+
         if (!cancelled) {
           if (statsResponse.status === "rejected") {
             setStats(null);
@@ -92,7 +94,7 @@ export default function Dashboard() {
           {standup && (
             <div className="card" style={{ marginBottom: "1rem" }}>
               <h2>AI Standup Summary</h2>
-              <p>
+              <p aria-live="polite" aria-atomic="true">
                 <strong>Risk:</strong> {standup.riskLevel.toUpperCase()} — {standup.headline}
               </p>
 
