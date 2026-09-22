@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import { type Types } from "mongoose";
 import Task, { type TaskStatus } from "../models/Task";
 import Project, { type ProjectCategory } from "../models/Project";
@@ -53,68 +53,72 @@ function formatTaskLabel(task: {
  *                   enum: [low, medium, high]
  *       401: { $ref: '#/components/responses/Unauthorized' }
  */
-router.get("/ai-standup", async (_req: Request, res: Response) => {
-  const now = new Date();
+router.get("/ai-standup", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const now = new Date();
 
-  const [recentDone, inProgressOrTodo, blocked, overdueOpenCount] = await Promise.all([
-    Task.find({ status: "done" })
-      .sort({ updatedAt: -1 })
-      .limit(3)
-      .populate("project", "projectCode"),
-    Task.find({ status: { $in: ["in-progress", "todo"] } })
-      .sort({ dueDate: 1 })
-      .limit(3)
-      .populate("project", "projectCode"),
-    Task.find({ status: "blocked" })
-      .sort({ updatedAt: -1 })
-      .limit(3)
-      .populate("project", "projectCode"),
-    Task.countDocuments({
-      status: { $ne: "done" },
-      dueDate: { $lt: now },
-    }),
-  ]);
+    const [recentDone, inProgressOrTodo, blocked, overdueOpenCount] = await Promise.all([
+      Task.find({ status: "done" })
+        .sort({ updatedAt: -1 })
+        .limit(3)
+        .populate("project", "projectCode"),
+      Task.find({ status: { $in: ["in-progress", "todo"] } })
+        .sort({ dueDate: 1 })
+        .limit(3)
+        .populate("project", "projectCode"),
+      Task.find({ status: "blocked" })
+        .sort({ updatedAt: -1 })
+        .limit(3)
+        .populate("project", "projectCode"),
+      Task.countDocuments({
+        status: { $ne: "done" },
+        dueDate: { $lt: now },
+      }),
+    ]);
 
-  const yesterday =
-    recentDone.length > 0
-      ? recentDone.map((task) => `Completed ${formatTaskLabel(task)}`)
-      : ["No recently completed tasks yet."];
+    const yesterday =
+      recentDone.length > 0
+        ? recentDone.map((task) => `Completed ${formatTaskLabel(task)}`)
+        : ["No recently completed tasks yet."];
 
-  const today =
-    inProgressOrTodo.length > 0
-      ? inProgressOrTodo.map((task) => {
-          const dueText = task.dueDate
-            ? `, due ${new Date(task.dueDate).toLocaleDateString("en-US")}`
-            : "";
-          return `Focus on ${formatTaskLabel(task)}${dueText}`;
-        })
-      : ["No active tasks in progress right now."];
+    const today =
+      inProgressOrTodo.length > 0
+        ? inProgressOrTodo.map((task) => {
+            const dueText = task.dueDate
+              ? `, due ${new Date(task.dueDate).toLocaleDateString("en-US")}`
+              : "";
+            return `Focus on ${formatTaskLabel(task)}${dueText}`;
+          })
+        : ["No active tasks in progress right now."];
 
-  const blockers =
-    blocked.length > 0
-      ? blocked.map((task) => `Blocked: ${formatTaskLabel(task)}`)
-      : ["No active blockers detected."];
+    const blockers =
+      blocked.length > 0
+        ? blocked.map((task) => `Blocked: ${formatTaskLabel(task)}`)
+        : ["No active blockers detected."];
 
-  const riskLevel = blocked.length >= 3 || overdueOpenCount >= 5
-    ? "high"
-    : blocked.length >= 1 || overdueOpenCount >= 2
-      ? "medium"
-      : "low";
+    const riskLevel = blocked.length >= 3 || overdueOpenCount >= 5
+      ? "high"
+      : blocked.length >= 1 || overdueOpenCount >= 2
+        ? "medium"
+        : "low";
 
-  const headline =
-    riskLevel === "high"
-      ? `Delivery risk is high: ${blocked.length} blockers and ${overdueOpenCount} overdue open tasks.`
-      : riskLevel === "medium"
-        ? `Delivery risk is medium: ${blocked.length} blockers and ${overdueOpenCount} overdue open tasks.`
-        : `Delivery risk is low: ${blocked.length} blockers and ${overdueOpenCount} overdue open tasks.`;
+    const headline =
+      riskLevel === "high"
+        ? `Delivery risk is high: ${blocked.length} blockers and ${overdueOpenCount} overdue open tasks.`
+        : riskLevel === "medium"
+          ? `Delivery risk is medium: ${blocked.length} blockers and ${overdueOpenCount} overdue open tasks.`
+          : `Delivery risk is low: ${blocked.length} blockers and ${overdueOpenCount} overdue open tasks.`;
 
-  res.status(200).json({
-    headline,
-    yesterday,
-    today,
-    blockers,
-    riskLevel,
-  });
+    res.status(200).json({
+      headline,
+      yesterday,
+      today,
+      blockers,
+      riskLevel,
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 /**
