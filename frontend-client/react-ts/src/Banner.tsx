@@ -21,6 +21,7 @@ export default function Banner() {
         <Link to="/">Dashboard</Link>
         <Link to="/projects">Projects</Link>
         <Link to="/tasks">Tasks</Link>
+        {user.role === "admin" && <Link to="/admin">Admin</Link>}
         <button type="button" onClick={logout}>
           Log out
         </button>
