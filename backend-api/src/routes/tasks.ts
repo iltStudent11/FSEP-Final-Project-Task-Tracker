@@ -11,6 +11,82 @@ router.use(authenticate);
 
 const TASK_STATUSES = ["todo", "in-progress", "blocked", "done"];
 
+function generateSubtaskSuggestions(title: string, description?: string) {
+  const source = `${title} ${description ?? ""}`.toLowerCase();
+  const suggestions: string[] = [];
+
+  suggestions.push("Clarify acceptance criteria and edge cases");
+
+  if (source.includes("api") || source.includes("backend") || source.includes("endpoint")) {
+    suggestions.push("Implement endpoint/service logic");
+    suggestions.push("Add request validation and error handling");
+  }
+
+  if (source.includes("ui") || source.includes("frontend") || source.includes("react")) {
+    suggestions.push("Build UI interactions and loading/error states");
+    suggestions.push("Connect UI to API contract");
+  }
+
+  if (source.includes("auth") || source.includes("login") || source.includes("token")) {
+    suggestions.push("Add auth/permission checks for protected actions");
+  }
+
+  if (source.includes("test") || source.includes("qa") || source.includes("bug")) {
+    suggestions.push("Write/extend automated tests for critical paths");
+  } else {
+    suggestions.push("Add/extend automated tests");
+  }
+
+  suggestions.push("Update docs and rollout notes");
+
+  const unique = Array.from(new Set(suggestions));
+  return unique.slice(0, 6);
+}
+
+/**
+ * @openapi
+ * /tasks/ai-suggest-subtasks:
+ *   post:
+ *     tags: [Tasks]
+ *     summary: Generate AI-style subtask suggestions from a task title
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title]
+ *             properties:
+ *               title: { type: string }
+ *               description: { type: string }
+ *     responses:
+ *       200:
+ *         description: Suggested subtasks
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 subtasks:
+ *                   type: array
+ *                   items: { type: string }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
+router.post(
+  "/ai-suggest-subtasks",
+  validate([
+    body("title").trim().notEmpty().withMessage("Title is required"),
+    body("description").optional().isString().withMessage("Description must be a string"),
+  ]),
+  async (req: Request, res: Response) => {
+    const { title, description } = req.body as { title: string; description?: string };
+    const subtasks = generateSubtaskSuggestions(title, description);
+
+    res.status(200).json({ subtasks });
+  },
+);
+
 /**
  * Reconciles a task's status with its subtasks: completing every subtask
  * marks the task done (auto-assigning the current user if assignedTo/
