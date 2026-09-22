@@ -575,4 +575,84 @@ describe("API integration", () => {
       expect(response.body.message).toBe("Subtask not found");
     });
   });
+
+  describe("dashboard routes", () => {
+    async function setupDashboardContext() {
+      const { token, userId } = await createAuthenticatedUser("dashboard-owner@example.com");
+
+      const projectRes = await request(app)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ ...validProjectPayload, projectCode: "PRJ-300", name: "Dashboard Project" });
+
+      expect(projectRes.status).toBe(201);
+
+      return {
+        token,
+        userId,
+        projectId: projectRes.body.project._id as string,
+      };
+    }
+
+    it("returns an AI standup summary", async () => {
+      const { token, userId, projectId } = await setupDashboardContext();
+
+      await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          project: projectId,
+          title: "Completed setup",
+          dueDate: "2026-10-01",
+          status: "done",
+          assignedTo: userId,
+          completedBy: userId,
+        });
+
+      await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          project: projectId,
+          title: "Active task",
+          dueDate: "2026-10-02",
+          status: "in-progress",
+        });
+
+      await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          project: projectId,
+          title: "Blocked task",
+          dueDate: "2026-09-01",
+          status: "blocked",
+        });
+
+      const response = await request(app)
+        .get("/api/dashboard/ai-standup")
+        .set("Authorization", `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        riskLevel: expect.stringMatching(/low|medium|high/),
+      });
+      expect(Array.isArray(response.body.yesterday)).toBe(true);
+      expect(Array.isArray(response.body.today)).toBe(true);
+      expect(Array.isArray(response.body.blockers)).toBe(true);
+      expect(response.body.yesterday.length).toBeGreaterThan(0);
+      expect(response.body.today.length).toBeGreaterThan(0);
+      expect(response.body.blockers.length).toBeGreaterThan(0);
+      expect(response.body.yesterday).toEqual(expect.arrayContaining([expect.stringContaining("PRJ-300")]));
+      expect(response.body.today).toEqual(expect.arrayContaining([expect.stringContaining("PRJ-300")]));
+      expect(response.body.blockers).toEqual(expect.arrayContaining([expect.stringContaining("PRJ-300")]));
+    });
+
+    it("rejects standup summary when unauthenticated", async () => {
+      const response = await request(app).get("/api/dashboard/ai-standup");
+
+      expect(response.status).toBe(401);
+      expect(response.body.message).toBe("Missing or malformed authorization header");
+    });
+  });
 });
