@@ -38,13 +38,20 @@ export default function Dashboard() {
       setError(null);
 
       try {
-        const [statsResponse, standupResponse] = await Promise.all([
+        const [statsResponse, standupResponse] = await Promise.allSettled([
           api.get<DashboardStats>("/dashboard"),
           api.get<AiStandupSummary>("/dashboard/ai-standup"),
         ]);
         if (!cancelled) {
-          setStats(statsResponse.data);
-          setStandup(standupResponse.data);
+          if (statsResponse.status === "rejected") {
+            setStats(null);
+            setStandup(null);
+            setError(getErrorMessage(statsResponse.reason));
+            return;
+          }
+
+          setStats(statsResponse.value.data);
+          setStandup(standupResponse.status === "fulfilled" ? standupResponse.value.data : null);
         }
       } catch (err) {
         if (!cancelled) {
