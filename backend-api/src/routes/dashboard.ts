@@ -12,7 +12,7 @@ router.use(authenticate);
 const TASK_STATUSES = ["todo", "in-progress", "blocked", "done"];
 const PROJECT_CATEGORIES = ["web", "mobile", "data"];
 
-function formatTaskLabel(task: {
+export function formatTaskLabel(task: {
   taskNumber: string;
   title: string;
   project?: { projectCode?: string } | Types.ObjectId | null;
