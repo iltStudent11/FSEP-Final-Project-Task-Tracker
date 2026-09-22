@@ -13,6 +13,72 @@ const PROJECT_CATEGORIES = ["web", "mobile", "data"];
 
 /**
  * @openapi
+ * /dashboard/ai-risk-radar:
+ *   get:
+ *     tags: [Dashboard]
+ *     summary: Generate an AI-style risk radar for current workload
+ *     responses:
+ *       200:
+ *         description: Risk score, level, and key drivers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 riskScore: { type: number }
+ *                 riskLevel:
+ *                   type: string
+ *                   enum: [low, medium, high]
+ *                 summary: { type: string }
+ *                 drivers:
+ *                   type: object
+ *                   properties:
+ *                     blockedTasks: { type: integer }
+ *                     overdueOpenTasks: { type: integer }
+ *                     dueSoonOpenTasks: { type: integer }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
+router.get("/ai-risk-radar", async (_req: Request, res: Response) => {
+  const now = new Date();
+  const inThreeDays = new Date(now);
+  inThreeDays.setDate(inThreeDays.getDate() + 3);
+
+  const [blockedTasks, overdueOpenTasks, dueSoonOpenTasks] = await Promise.all([
+    Task.countDocuments({ status: "blocked" }),
+    Task.countDocuments({
+      status: { $ne: "done" },
+      dueDate: { $lt: now },
+    }),
+    Task.countDocuments({
+      status: { $ne: "done" },
+      dueDate: { $gte: now, $lte: inThreeDays },
+    }),
+  ]);
+
+  const riskScore = Math.min(100, blockedTasks * 25 + overdueOpenTasks * 15 + dueSoonOpenTasks * 5);
+  const riskLevel = riskScore >= 70 ? "high" : riskScore >= 35 ? "medium" : "low";
+
+  const summary =
+    riskLevel === "high"
+      ? `High delivery risk: ${blockedTasks} blocked, ${overdueOpenTasks} overdue, ${dueSoonOpenTasks} due soon.`
+      : riskLevel === "medium"
+        ? `Medium delivery risk: ${blockedTasks} blocked, ${overdueOpenTasks} overdue, ${dueSoonOpenTasks} due soon.`
+        : `Low delivery risk: ${blockedTasks} blocked, ${overdueOpenTasks} overdue, ${dueSoonOpenTasks} due soon.`;
+
+  res.status(200).json({
+    riskScore,
+    riskLevel,
+    summary,
+    drivers: {
+      blockedTasks,
+      overdueOpenTasks,
+      dueSoonOpenTasks,
+    },
+  });
+});
+
+/**
+ * @openapi
  * /dashboard:
  *   get:
  *     tags: [Dashboard]

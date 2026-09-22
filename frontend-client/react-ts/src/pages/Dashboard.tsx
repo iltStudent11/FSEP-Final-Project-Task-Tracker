@@ -5,7 +5,7 @@ import { useAuth } from "../useAuth";
 import StatusBadge from "../StatusBadge";
 import { TASK_STATUS_COLORS, TASK_STATUS_LABELS, TASK_STATUS_TONE } from "../claimStatus";
 import { PROJECT_CATEGORY_LABELS } from "../policyMeta";
-import type { DashboardStats, Project, ProjectCategory, TaskStatus } from "../types";
+import type { AiRiskRadar, DashboardStats, Project, ProjectCategory, TaskStatus } from "../types";
 
 const numberFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
@@ -26,6 +26,8 @@ function categoryLabel(category: ProjectCategory): string {
 export default function Dashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [riskRadar, setRiskRadar] = useState<AiRiskRadar | null>(null);
+  const [riskRadarUnavailable, setRiskRadarUnavailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -35,15 +37,28 @@ export default function Dashboard() {
     async function loadStats() {
       setLoading(true);
       setError(null);
+      setRiskRadarUnavailable(false);
 
       try {
-        const response = await api.get<DashboardStats>("/dashboard");
+        const [statsResult, riskResult] = await Promise.allSettled([
+          api.get<DashboardStats>("/dashboard"),
+          api.get<AiRiskRadar>("/dashboard/ai-risk-radar"),
+        ]);
+
         if (!cancelled) {
-          setStats(response.data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(getErrorMessage(err));
+          if (statsResult.status === "fulfilled") {
+            setStats(statsResult.value.data);
+          } else {
+            setStats(null);
+            setError(getErrorMessage(statsResult.reason));
+          }
+
+          if (riskResult.status === "fulfilled") {
+            setRiskRadar(riskResult.value.data);
+          } else {
+            setRiskRadar(null);
+            setRiskRadarUnavailable(true);
+          }
         }
       } finally {
         if (!cancelled) {
@@ -77,6 +92,37 @@ export default function Dashboard() {
 
       {stats && (
         <>
+          {riskRadar && (
+            <div className="card" style={{ marginBottom: "1rem" }}>
+              <h2>AI Risk Radar</h2>
+              <p>
+                <strong>Risk Score:</strong> {riskRadar.riskScore}/100
+              </p>
+              <p>
+                <StatusBadge
+                  label={riskRadar.riskLevel.toUpperCase()}
+                  tone={
+                    riskRadar.riskLevel === "high"
+                      ? "danger"
+                      : riskRadar.riskLevel === "medium"
+                        ? "warning"
+                        : "success"
+                  }
+                />
+              </p>
+              <p>{riskRadar.summary}</p>
+              <ul>
+                <li>Blocked tasks: {riskRadar.drivers.blockedTasks}</li>
+                <li>Overdue open tasks: {riskRadar.drivers.overdueOpenTasks}</li>
+                <li>Due in 3 days: {riskRadar.drivers.dueSoonOpenTasks}</li>
+              </ul>
+            </div>
+          )}
+
+          {riskRadarUnavailable && (
+            <p role="status">Risk Radar temporarily unavailable.</p>
+          )}
+
           <div className="stat-cards">
             <div className="card stat-card">
               <span className="stat-card-label">Total Tasks</span>

@@ -575,4 +575,60 @@ describe("API integration", () => {
       expect(response.body.message).toBe("Subtask not found");
     });
   });
+
+  describe("dashboard routes", () => {
+    async function setupDashboardContext() {
+      const { token, userId } = await createAuthenticatedUser("dashboard-risk@example.com");
+
+      const projectRes = await request(app)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ ...validProjectPayload, projectCode: "PRJ-901", name: "Risk Radar Project" });
+
+      expect(projectRes.status).toBe(201);
+
+      return {
+        token,
+        userId,
+        projectId: projectRes.body.project._id as string,
+      };
+    }
+
+    it("returns AI risk radar summary", async () => {
+      const { token, projectId } = await setupDashboardContext();
+
+      await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          project: projectId,
+          title: "Blocked item",
+          dueDate: "2026-10-01",
+          status: "blocked",
+        });
+
+      const response = await request(app)
+        .get("/api/dashboard/ai-risk-radar")
+        .set("Authorization", `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        riskScore: expect.any(Number),
+        riskLevel: expect.stringMatching(/low|medium|high/),
+        summary: expect.any(String),
+      });
+      expect(response.body.drivers).toMatchObject({
+        blockedTasks: expect.any(Number),
+        overdueOpenTasks: expect.any(Number),
+        dueSoonOpenTasks: expect.any(Number),
+      });
+    });
+
+    it("rejects AI risk radar when unauthenticated", async () => {
+      const response = await request(app).get("/api/dashboard/ai-risk-radar");
+
+      expect(response.status).toBe(401);
+      expect(response.body.message).toBe("Missing or malformed authorization header");
+    });
+  });
 });

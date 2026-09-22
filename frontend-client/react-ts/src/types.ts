@@ -121,6 +121,17 @@ export interface DashboardStats {
   totalEstimateHours: number;
 }
 
+export interface AiRiskRadar {
+  riskScore: number;
+  riskLevel: "low" | "medium" | "high";
+  summary: string;
+  drivers: {
+    blockedTasks: number;
+    overdueOpenTasks: number;
+    dueSoonOpenTasks: number;
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
