@@ -36,15 +36,21 @@ export default function Dashboard() {
     async function loadStats() {
       setLoading(true);
       setError(null);
+      setStandup(null);
 
       try {
-        const [statsResponse, standupResponse] = await Promise.all([
+        const [statsResult, standupResult] = await Promise.allSettled([
           api.get<DashboardStats>("/dashboard"),
           api.get<AiStandupSummary>("/dashboard/ai-standup"),
         ]);
+
+        if (statsResult.status !== "fulfilled") {
+          throw statsResult.reason;
+        }
+
         if (!cancelled) {
-          setStats(statsResponse.data);
-          setStandup(standupResponse.data);
+          setStats(statsResult.value.data);
+          setStandup(standupResult.status === "fulfilled" ? standupResult.value.data : null);
         }
       } catch (err) {
         if (!cancelled) {
