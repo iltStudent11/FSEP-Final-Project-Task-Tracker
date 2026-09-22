@@ -121,6 +121,14 @@ export interface DashboardStats {
   totalEstimateHours: number;
 }
 
+export interface AiStandupSummary {
+  headline: string;
+  yesterday: string[];
+  today: string[];
+  blockers: string[];
+  riskLevel: "low" | "medium" | "high";
+}
+
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------

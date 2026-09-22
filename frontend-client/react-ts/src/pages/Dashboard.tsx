@@ -5,7 +5,7 @@ import { useAuth } from "../useAuth";
 import StatusBadge from "../StatusBadge";
 import { TASK_STATUS_COLORS, TASK_STATUS_LABELS, TASK_STATUS_TONE } from "../claimStatus";
 import { PROJECT_CATEGORY_LABELS } from "../policyMeta";
-import type { DashboardStats, Project, ProjectCategory, TaskStatus } from "../types";
+import type { AiStandupSummary, DashboardStats, Project, ProjectCategory, TaskStatus } from "../types";
 
 const numberFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
@@ -26,6 +26,7 @@ function categoryLabel(category: ProjectCategory): string {
 export default function Dashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [standup, setStandup] = useState<AiStandupSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -37,9 +38,13 @@ export default function Dashboard() {
       setError(null);
 
       try {
-        const response = await api.get<DashboardStats>("/dashboard");
+        const [statsResponse, standupResponse] = await Promise.all([
+          api.get<DashboardStats>("/dashboard"),
+          api.get<AiStandupSummary>("/dashboard/ai-standup"),
+        ]);
         if (!cancelled) {
-          setStats(response.data);
+          setStats(statsResponse.data);
+          setStandup(standupResponse.data);
         }
       } catch (err) {
         if (!cancelled) {
@@ -77,6 +82,36 @@ export default function Dashboard() {
 
       {stats && (
         <>
+          {standup && (
+            <div className="card" style={{ marginBottom: "1rem" }}>
+              <h2>AI Standup Summary</h2>
+              <p>
+                <strong>Risk:</strong> {standup.riskLevel.toUpperCase()} — {standup.headline}
+              </p>
+
+              <h3>Yesterday</h3>
+              <ul>
+                {standup.yesterday.map((line, idx) => (
+                  <li key={`y-${idx}`}>{line}</li>
+                ))}
+              </ul>
+
+              <h3>Today</h3>
+              <ul>
+                {standup.today.map((line, idx) => (
+                  <li key={`t-${idx}`}>{line}</li>
+                ))}
+              </ul>
+
+              <h3>Blockers</h3>
+              <ul>
+                {standup.blockers.map((line, idx) => (
+                  <li key={`b-${idx}`}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="stat-cards">
             <div className="card stat-card">
               <span className="stat-card-label">Total Tasks</span>
