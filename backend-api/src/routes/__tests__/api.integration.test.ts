@@ -120,6 +120,107 @@ describe("API integration", () => {
       expect(response.status).toBe(401);
       expect(response.body.message).toBe("Missing or malformed authorization header");
     });
+
+    it("allows admin to update user profile fields including role", async () => {
+      const { token } = await createAuthenticatedUser("admin-update@example.com");
+      const member = await User.create({
+        name: "Member User",
+        email: "member-update@example.com",
+        password: "Password123!",
+        role: "member",
+      });
+
+      const response = await request(app)
+        .put(`/api/auth/users/${member._id}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          name: "Updated Member",
+          email: "updated-member@example.com",
+          role: "lead",
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.user.name).toBe("Updated Member");
+      expect(response.body.user.email).toBe("updated-member@example.com");
+      expect(response.body.user.role).toBe("lead");
+      expect(response.body.user.password).toBeUndefined();
+    });
+
+    it("allows admin to delete a user", async () => {
+      const { token } = await createAuthenticatedUser("admin-delete@example.com");
+      const member = await User.create({
+        name: "Member Delete",
+        email: "member-delete@example.com",
+        password: "Password123!",
+        role: "member",
+      });
+
+      const response = await request(app)
+        .delete(`/api/auth/users/${member._id}`)
+        .set("Authorization", `Bearer ${token}`);
+
+      expect(response.status).toBe(204);
+
+      const deletedUser = await User.findById(member._id);
+      expect(deletedUser).toBeNull();
+    });
+
+    it("rejects member role from updating users", async () => {
+      await request(app).post("/api/auth/register").send({
+        name: "Member",
+        email: "member-admin-guard@example.com",
+        password: "Password123!",
+        role: "member",
+      });
+      const loginRes = await request(app).post("/api/auth/login").send({
+        email: "member-admin-guard@example.com",
+        password: "Password123!",
+      });
+      const memberToken = loginRes.body.token as string;
+
+      const target = await User.create({
+        name: "Target User",
+        email: "target-update@example.com",
+        password: "Password123!",
+        role: "member",
+      });
+
+      const response = await request(app)
+        .put(`/api/auth/users/${target._id}`)
+        .set("Authorization", `Bearer ${memberToken}`)
+        .send({ role: "lead" });
+
+      expect(response.status).toBe(403);
+      expect(response.body.message).toBe("Forbidden: insufficient permissions");
+    });
+
+    it("rejects member role from deleting users", async () => {
+      await request(app).post("/api/auth/register").send({
+        name: "Member Two",
+        email: "member-delete-guard@example.com",
+        password: "Password123!",
+        role: "member",
+      });
+      const loginRes = await request(app).post("/api/auth/login").send({
+        email: "member-delete-guard@example.com",
+        password: "Password123!",
+      });
+      const memberToken = loginRes.body.token as string;
+
+      const target = await User.create({
+        name: "Target Delete",
+        email: "target-delete@example.com",
+        password: "Password123!",
+        role: "member",
+      });
+
+      const response = await request(app)
+        .delete(`/api/auth/users/${target._id}`)
+        .set("Authorization", `Bearer ${memberToken}`);
+
+      expect(response.status).toBe(403);
+      expect(response.body.message).toBe("Forbidden: insufficient permissions");
+    });
   });
 
   describe("projects routes", () => {

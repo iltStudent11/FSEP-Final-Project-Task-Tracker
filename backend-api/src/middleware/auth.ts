@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import User from "../models/User";
+import type { UserRole } from "../models/User";
 
 interface AccessTokenPayload {
   id: string;
@@ -45,4 +46,20 @@ export async function authenticate(
   } catch {
     res.status(401).json({ message: "Invalid or expired token" });
   }
+}
+
+export function authorizeRoles(...roles: UserRole[]) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ message: "Missing or malformed authorization header" });
+      return;
+    }
+
+    if (!roles.includes(req.user.role)) {
+      res.status(403).json({ message: "Forbidden: insufficient permissions" });
+      return;
+    }
+
+    next();
+  };
 }

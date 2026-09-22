@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
-import { body } from "express-validator";
+import { body, param } from "express-validator";
 import User from "../models/User";
-import { authenticate } from "../middleware/auth";
+import { authenticate, authorizeRoles } from "../middleware/auth";
 import { validate } from "../middleware/validate";
 import { generateToken, getTokenTimestamps } from "../utils/token";
 
@@ -169,5 +169,145 @@ router.get("/users", authenticate, async (_req: Request, res: Response) => {
   const users = await User.find().sort({ createdAt: 1 });
   res.status(200).json({ users });
 });
+
+/**
+ * @openapi
+ * /auth/users/{id}:
+ *   put:
+ *     tags: [Auth]
+ *     summary: Admin updates a user's profile
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name: { type: string }
+ *               email: { type: string, format: email }
+ *               role: { type: string, enum: [admin, member, lead] }
+ *               password: { type: string, minLength: 8 }
+ *     responses:
+ *       200:
+ *         description: Updated user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user: { $ref: '#/components/schemas/User' }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403:
+ *         description: Forbidden
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ApiError' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.put(
+  "/users/:id",
+  authenticate,
+  authorizeRoles("admin"),
+  validate([
+    param("id").isMongoId().withMessage("Invalid user id"),
+    body().custom((value) => {
+      const hasAnyField = ["name", "email", "role", "password"].some(
+        (field) => Object.prototype.hasOwnProperty.call(value, field),
+      );
+
+      if (!hasAnyField) {
+        throw new Error("At least one user field is required");
+      }
+
+      return true;
+    }),
+    body("name").optional().trim().notEmpty().withMessage("Name cannot be empty"),
+    body("email").optional().isEmail().withMessage("A valid email is required").normalizeEmail(),
+    body("role").optional().isIn(["admin", "member", "lead"]).withMessage("Invalid role"),
+    body("password")
+      .optional()
+      .isLength({ min: 8 })
+      .withMessage("Password must be at least 8 characters"),
+  ]),
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { name, email, role, password } = req.body as {
+      name?: string;
+      email?: string;
+      role?: "admin" | "member" | "lead";
+      password?: string;
+    };
+
+    const user = await User.findById(id);
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({ email });
+      if (existingUser && existingUser._id.toString() !== id) {
+        res.status(409).json({ message: "Email is already registered" });
+        return;
+      }
+    }
+
+    if (name !== undefined) user.name = name;
+    if (email !== undefined) user.email = email;
+    if (role !== undefined) user.role = role;
+    if (password !== undefined) user.password = password;
+
+    await user.save();
+
+    res.status(200).json({ user });
+  },
+);
+
+/**
+ * @openapi
+ * /auth/users/{id}:
+ *   delete:
+ *     tags: [Auth]
+ *     summary: Admin deletes a user
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       204:
+ *         description: User deleted
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403:
+ *         description: Forbidden
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ApiError' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.delete(
+  "/users/:id",
+  authenticate,
+  authorizeRoles("admin"),
+  validate([param("id").isMongoId().withMessage("Invalid user id")]),
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const deleted = await User.findByIdAndDelete(id);
+    if (!deleted) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    res.status(204).send();
+  },
+);
 
 export default router;

@@ -38,6 +38,21 @@ describe("Banner", () => {
     expect(screen.getByRole("link", { name: /dashboard/i })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: /projects/i })).toHaveAttribute("href", "/projects");
     expect(screen.getByRole("link", { name: /tasks/i })).toHaveAttribute("href", "/tasks");
+    expect(screen.queryByRole("link", { name: /admin/i })).not.toBeInTheDocument();
+  });
+
+  it("shows admin navigation link for admin users", () => {
+    localStorage.setItem(
+      USER_STORAGE_KEY,
+      JSON.stringify({
+        ...mockUser,
+        role: "admin",
+      }),
+    );
+
+    renderBanner();
+
+    expect(screen.getByRole("link", { name: /admin/i })).toHaveAttribute("href", "/admin");
   });
 
   it("renders nothing when there is no logged-in user", () => {
