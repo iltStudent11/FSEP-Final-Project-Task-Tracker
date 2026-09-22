@@ -82,7 +82,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit togeth
       This clears existing `User`/`Project`/`Task` data and inserts:
       - 3 users — 1 admin (`admin@tasktracker.com`), 1 lead (`alice@tasktracker.com`), 1 member (`bob@tasktracker.com`), password `Admin123!` / `Password123!` respectively
       - 9 projects (one per lab-guide section) across `web`, `mobile`, and `data` categories (mix of `active` and `on-hold` statuses)
-      - 33 tasks (drawn from the lab-guide checklist) spread evenly across every task status
+      - 33 tasks (drawn from the lab-guide checklist) spread evenly across every task status — tasks whose lab-guide entry had a bullet list get that list seeded as real, checkable `subtasks` rather than plain-text `description`, with completion matching the task's status (`todo`: none checked, `in-progress`: about half, `blocked`: just the first, `done`: all checked)
 
    ```mermaid
       pie showData title Seeded tasks by status
@@ -113,7 +113,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit togeth
 
 ## API overview
 
-All routes are mounted under `/api`. Every route except `/api/health` and `/api/auth/register`/`/login` requires a `Authorization: Bearer <token>` header.
+All routes are mounted under `/api`. Every route except `/api/health` and `/api/auth/register`/`/login` requires a `Authorization: Bearer <token>` header. `PUT`/`DELETE /api/auth/users/:id` and both `/api/admin/*` routes additionally require the token's user to have the `admin` role (403 otherwise) — every other route is open to any authenticated user regardless of role.
 
 **Interactive docs:** with the server running, open `/api/docs` for a Swagger UI where you can browse and execute every endpoint below — log in via `POST /api/auth/login`, then click **Authorize** and paste the returned token to try authenticated requests. The raw OpenAPI spec is served at `/api/docs.json`.
 
@@ -123,19 +123,28 @@ All routes are mounted under `/api`. Every route except `/api/health` and `/api/
 | POST | `/api/auth/register` | Create a user account (does not return a token — log in separately) |
 | POST | `/api/auth/login` | Authenticate, returns a JWT and its expiry timestamp |
 | GET | `/api/auth/me` | Return the authenticated user's profile |
+| GET | `/api/auth/users` | List all users |
+| PUT | `/api/auth/users/:id` | **Admin only.** Update a user's name/email/role/password |
+| DELETE | `/api/auth/users/:id` | **Admin only.** Delete a user |
 | GET | `/api/projects` | List projects (filter by `category`, `status`, `search`; paginated) |
 | GET | `/api/projects/:id` | Get a single project (owner populated) |
-| POST | `/api/projects` | Create a project |
+| POST | `/api/projects` | Create a project (owner is set to the authenticated user) |
 | PUT | `/api/projects/:id` | Update a project |
 | DELETE | `/api/projects/:id` | Delete a project |
-| GET | `/api/tasks` | List tasks (filter by `status`, `project`, `assignedTo`, `search`; paginated) |
+| GET | `/api/tasks` | List tasks (filter by `status`, `project`, `assignedTo`, `completedBy`, `search`; paginated) |
 | GET | `/api/tasks/stats` | Aggregated task statistics |
+| POST | `/api/tasks/ai-suggest-subtasks` | Suggest subtask text from a task title/description (keyword-based, not a real AI model call — see [Design](docs/DESIGN.md#ai-suggest-subtasks--ai-standup-not-real-ai)) |
 | GET | `/api/tasks/:id` | Get a single task (project + assignee populated) |
-| POST | `/api/tasks` | Create a task (auto-assigned to the requesting user) |
+| POST | `/api/tasks` | Create a task (`assignedTo` is optional and **not** auto-set — unlike a project's `owner`) |
 | PUT | `/api/tasks/:id` | Update a task |
 | POST | `/api/tasks/:id/notes` | Add a note to a task |
+| POST | `/api/tasks/:id/subtasks` | Add a subtask (starts incomplete) |
+| PATCH | `/api/tasks/:id/subtasks/:subtaskId` | Mark a subtask complete/incomplete — completing every subtask auto-marks the task `done` |
 | DELETE | `/api/tasks/:id` | Delete a task |
 | GET | `/api/dashboard` | Aggregated totals across tasks, projects, and users |
+| GET | `/api/dashboard/ai-standup` | Rule-based "standup" summary grouped into yesterday/today/blockers (also not a real AI model call) |
+| GET | `/api/admin/backup` | **Admin only.** Download a full JSON backup of the database (includes password hashes) |
+| POST | `/api/admin/restore` | **Admin only.** Replace the entire database with an uploaded backup — destructive, no undo |
 
 ## Testing
 
