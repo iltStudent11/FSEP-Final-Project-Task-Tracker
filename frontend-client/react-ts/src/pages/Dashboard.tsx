@@ -39,18 +39,21 @@ export default function Dashboard() {
       setStandup(null);
 
       try {
-        const [statsResult, standupResult] = await Promise.allSettled([
+        const [statsResponse, standupResponse] = await Promise.allSettled([
           api.get<DashboardStats>("/dashboard"),
           api.get<AiStandupSummary>("/dashboard/ai-standup"),
         ]);
 
-        if (statsResult.status !== "fulfilled") {
-          throw statsResult.reason;
-        }
-
         if (!cancelled) {
-          setStats(statsResult.value.data);
-          setStandup(standupResult.status === "fulfilled" ? standupResult.value.data : null);
+          if (statsResponse.status === "rejected") {
+            setStats(null);
+            setStandup(null);
+            setError(getErrorMessage(statsResponse.reason));
+            return;
+          }
+
+          setStats(statsResponse.value.data);
+          setStandup(standupResponse.status === "fulfilled" ? standupResponse.value.data : null);
         }
       } catch (err) {
         if (!cancelled) {

@@ -18,8 +18,11 @@ export function formatTaskLabel(task: {
   project?: { projectCode?: string } | Types.ObjectId | null;
 }) {
   const projectCode =
-    task.project && typeof task.project === "object" && "projectCode" in task.project
-      ? task.project.projectCode ?? "N/A"
+    task.project &&
+    typeof task.project === "object" &&
+    "projectCode" in task.project &&
+    typeof task.project.projectCode === "string"
+      ? task.project.projectCode
       : "N/A";
   return `${task.taskNumber} (${projectCode}) — ${task.title}`;
 }

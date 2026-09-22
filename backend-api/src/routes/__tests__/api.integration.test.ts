@@ -669,6 +669,9 @@ describe("API integration", () => {
       expect(response.body.yesterday.length).toBeGreaterThan(0);
       expect(response.body.today.length).toBeGreaterThan(0);
       expect(response.body.blockers.length).toBeGreaterThan(0);
+      expect(response.body.yesterday).toEqual(expect.arrayContaining([expect.stringContaining("PRJ-300")]));
+      expect(response.body.today).toEqual(expect.arrayContaining([expect.stringContaining("PRJ-300")]));
+      expect(response.body.blockers).toEqual(expect.arrayContaining([expect.stringContaining("PRJ-300")]));
     });
 
     it("rejects standup summary when unauthenticated", async () => {
