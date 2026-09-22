@@ -91,7 +91,7 @@ export default function Dashboard() {
           {standup && (
             <div className="card" style={{ marginBottom: "1rem" }}>
               <h2>AI Standup Summary</h2>
-              <p>
+              <p aria-live="polite" aria-atomic="true">
                 <strong>Risk:</strong> {standup.riskLevel.toUpperCase()} — {standup.headline}
               </p>
 
