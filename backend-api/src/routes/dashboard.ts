@@ -14,9 +14,15 @@ const PROJECT_CATEGORIES = ["web", "mobile", "data"];
 function formatTaskLabel(task: {
   taskNumber: string;
   title: string;
-  project?: { projectCode?: string } | null;
+  project?: unknown;
 }) {
-  const projectCode = task.project?.projectCode ?? "N/A";
+  const projectCode =
+    task.project &&
+    typeof task.project === "object" &&
+    "projectCode" in task.project &&
+    typeof task.project.projectCode === "string"
+      ? task.project.projectCode
+      : "N/A";
   return `${task.taskNumber} (${projectCode}) — ${task.title}`;
 }
 
