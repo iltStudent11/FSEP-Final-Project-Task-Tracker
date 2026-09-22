@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from "express";
+import { type Types } from "mongoose";
 import Task, { type TaskStatus } from "../models/Task";
 import Project, { type ProjectCategory } from "../models/Project";
 import User from "../models/User";
@@ -14,9 +15,12 @@ const PROJECT_CATEGORIES = ["web", "mobile", "data"];
 function formatTaskLabel(task: {
   taskNumber: string;
   title: string;
-  project?: { projectCode?: string } | null;
+  project?: { projectCode?: string } | Types.ObjectId | null;
 }) {
-  const projectCode = task.project?.projectCode ?? "N/A";
+  const projectCode =
+    task.project && typeof task.project === "object" && "projectCode" in task.project
+      ? task.project.projectCode ?? "N/A"
+      : "N/A";
   return `${task.taskNumber} (${projectCode}) — ${task.title}`;
 }
 
