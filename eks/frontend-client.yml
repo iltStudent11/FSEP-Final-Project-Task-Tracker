@@ -17,7 +17,7 @@ spec:
         - name: ecr-registry
       containers:
         - name: client
-          image: 977099015675.dkr.ecr.us-east-1.amazonaws.com/fsep-cap3-frontend-client:1.0
+          image: 977099015675.dkr.ecr.us-east-1.amazonaws.com/fsep-cap3-frontend-client:1.1
           imagePullPolicy: Always
           # nginx in this image always listens on 80 (see
           # frontend-client/Dockerfile's EXPOSE 80) — PORT/NODE_ENV have no

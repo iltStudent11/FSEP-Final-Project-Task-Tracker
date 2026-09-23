@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: client
-          image: p3-capstone-client:latest
+          image: p3-capstone-client:1.1
           imagePullPolicy: Never
           ports:
             - containerPort: 80

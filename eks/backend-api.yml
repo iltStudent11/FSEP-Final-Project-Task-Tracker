@@ -17,7 +17,7 @@ spec:
         - name: ecr-registry
       containers:
         - name: api
-          image: 977099015675.dkr.ecr.us-east-1.amazonaws.com/fsep-cap3-backend-api:1.0
+          image: 977099015675.dkr.ecr.us-east-1.amazonaws.com/fsep-cap3-backend-api:1.1
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
