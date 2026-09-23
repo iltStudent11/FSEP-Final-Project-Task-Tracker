@@ -29,14 +29,15 @@ export function trackAuditActions(req: Request, res: Response, next: NextFunctio
     if (res.statusCode >= 400 || !req.user) return;
 
     const targetType = targetTypeForPath(path);
+    const targetId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
     void logAuditEvent({
       req,
       actor: req.user,
       eventType: "action",
       action: `${method} ${path}`,
-      targetType,
-      targetId: req.params.id,
+      ...(targetType ? { targetType } : {}),
+      ...(targetId ? { targetId } : {}),
       details: {
         query: req.query,
         body: req.body,
