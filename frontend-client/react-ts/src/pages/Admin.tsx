@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import api from "../api";
 import { getErrorMessage } from "../errorMessage";
-import type { AuditEventType, AuditLog, AuditLogsResponse, User, UserRole, UsersResponse } from "../types";
 import type {
   AuditEventType,
   AuditLog,
