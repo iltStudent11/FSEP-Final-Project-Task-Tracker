@@ -782,4 +782,152 @@ describe("API integration", () => {
       expect(response.body.message).toBe("Missing or malformed authorization header");
     });
   });
+
+  describe("admin backup/restore routes", () => {
+    async function createMemberToken(email: string) {
+      await request(app).post("/api/auth/register").send({
+        name: "Member",
+        email,
+        password: "Password123!",
+        role: "member",
+      });
+      const loginRes = await request(app).post("/api/auth/login").send({
+        email,
+        password: "Password123!",
+      });
+      return loginRes.body.token as string;
+    }
+
+    it("exports a full backup including password hashes, admin only", async () => {
+      const { token } = await createAuthenticatedUser("backup-admin@example.com");
+
+      const projectRes = await request(app)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${token}`)
+        .send(validProjectPayload);
+
+      await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          project: projectRes.body.project._id,
+          title: "Backup me",
+          dueDate: "2026-10-01",
+        });
+
+      const response = await request(app)
+        .get("/api/admin/backup")
+        .set("Authorization", `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.headers["content-disposition"]).toMatch(/attachment; filename=".*\.json"/);
+      expect(response.body.users).toHaveLength(1);
+      expect(response.body.users[0].email).toBe("backup-admin@example.com");
+      expect(typeof response.body.users[0].password).toBe("string");
+      expect(response.body.users[0].password).not.toBe("");
+      expect(response.body.projects).toHaveLength(1);
+      expect(response.body.tasks).toHaveLength(1);
+    });
+
+    it("rejects backup for non-admin users", async () => {
+      const memberToken = await createMemberToken("backup-member@example.com");
+
+      const response = await request(app)
+        .get("/api/admin/backup")
+        .set("Authorization", `Bearer ${memberToken}`);
+
+      expect(response.status).toBe(403);
+      expect(response.body.message).toBe("Forbidden: insufficient permissions");
+    });
+
+    it("restores a backup, replacing all existing data with matching _ids and working logins", async () => {
+      const { token, userId } = await createAuthenticatedUser("restore-admin@example.com");
+
+      const projectRes = await request(app)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${token}`)
+        .send(validProjectPayload);
+      const projectId = projectRes.body.project._id as string;
+
+      const taskRes = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          project: projectId,
+          title: "Restore me",
+          dueDate: "2026-10-05",
+        });
+      const taskId = taskRes.body.task._id as string;
+
+      const backupRes = await request(app)
+        .get("/api/admin/backup")
+        .set("Authorization", `Bearer ${token}`);
+
+      expect(backupRes.status).toBe(200);
+
+      // Mutate live data so the restore has something observable to undo.
+      await request(app)
+        .put(`/api/tasks/${taskId}`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ title: "Changed after backup" });
+      await request(app)
+        .post("/api/tasks")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          project: projectId,
+          title: "Created after backup, should disappear",
+          dueDate: "2026-10-06",
+        });
+
+      const restoreRes = await request(app)
+        .post("/api/admin/restore")
+        .set("Authorization", `Bearer ${token}`)
+        .send(backupRes.body);
+
+      expect(restoreRes.status).toBe(200);
+      expect(restoreRes.body.counts).toEqual({ users: 1, projects: 1, tasks: 1 });
+
+      const restoredTaskRes = await request(app)
+        .get(`/api/tasks/${taskId}`)
+        .set("Authorization", `Bearer ${token}`);
+      expect(restoredTaskRes.status).toBe(200);
+      expect(restoredTaskRes.body.task.title).toBe("Restore me");
+
+      const tasksListRes = await request(app)
+        .get("/api/tasks")
+        .set("Authorization", `Bearer ${token}`);
+      expect(tasksListRes.body.pagination.total).toBe(1);
+
+      // The restored user's original password (hashed, not re-hashed) still logs in.
+      const loginRes = await request(app).post("/api/auth/login").send({
+        email: "restore-admin@example.com",
+        password: "Admin123!",
+      });
+      expect(loginRes.status).toBe(200);
+      expect(loginRes.body.user._id).toBe(userId);
+    });
+
+    it("rejects restore for non-admin users", async () => {
+      const memberToken = await createMemberToken("restore-member@example.com");
+
+      const response = await request(app)
+        .post("/api/admin/restore")
+        .set("Authorization", `Bearer ${memberToken}`)
+        .send({ users: [], projects: [], tasks: [] });
+
+      expect(response.status).toBe(403);
+      expect(response.body.message).toBe("Forbidden: insufficient permissions");
+    });
+
+    it("rejects a restore payload missing the required arrays", async () => {
+      const { token } = await createAuthenticatedUser("restore-invalid@example.com");
+
+      const response = await request(app)
+        .post("/api/admin/restore")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ users: [] });
+
+      expect(response.status).toBe(400);
+    });
+  });
 });

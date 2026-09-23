@@ -152,6 +152,28 @@ export interface UsersResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Admin backup / restore
+// ---------------------------------------------------------------------------
+
+/** The shape returned by GET /admin/backup and accepted by POST /admin/restore. */
+export interface DatabaseBackup {
+  version: number;
+  exportedAt: string;
+  users: unknown[];
+  projects: unknown[];
+  tasks: unknown[];
+}
+
+export interface RestoreResponse {
+  message: string;
+  counts: {
+    users: number;
+    projects: number;
+    tasks: number;
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Health check
 // ---------------------------------------------------------------------------
 

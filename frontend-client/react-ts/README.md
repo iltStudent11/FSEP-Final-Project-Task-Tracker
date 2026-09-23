@@ -43,8 +43,9 @@ To log in, use one of the accounts created by the backend's `npm run seed` (e.g.
 | `/` | `Dashboard` | protected |
 | `/tasks` | `Tasks` | protected |
 | `/projects` | `Projects` | protected |
+| `/admin` | `Admin` | protected, **admin role only** |
 
-Protected routes are wrapped in `ProtectedRoute`, which redirects to `/login` when there's no stored token and otherwise renders the shared `Banner` (nav + user identity + role badge + logout) above the page. `Footer` renders on every route, including the public auth pages.
+Protected routes are wrapped in `ProtectedRoute`, which redirects to `/login` when there's no stored token and otherwise renders the shared `Banner` (nav + user identity + role badge + logout) above the page. `Footer` renders on every route, including the public auth pages. `/admin` has a second guard, `AdminRoute`, wrapped *inside* `ProtectedRoute` — it redirects non-admins to `/` rather than `/login` (they're authenticated, just not authorized), and `Banner` only renders the "Admin" nav link for `user.role === "admin"` in the first place. This is a UX convenience, not a security boundary — the backend's `authorizeRoles("admin")` middleware is what actually enforces it; see [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md#authorization).
 
 ## Auth flow
 
@@ -55,9 +56,10 @@ Protected routes are wrapped in `ProtectedRoute`, which redirects to `/login` wh
 
 ## Pages
 
-- **Dashboard** (`/`) — summary stat cards, tasks-by-status chart, projects-by-category summary, and a table of recent tasks from `GET /api/dashboard`.
-- **Tasks** (`/tasks`) — paginated, filterable (status + search) task list with an inline "New Task" form.
+- **Dashboard** (`/`) — summary stat cards, tasks-by-status chart, projects-by-category summary, a table of recent tasks from `GET /api/dashboard`, and an "AI Standup Summary" card from `GET /api/dashboard/ai-standup` (fetched alongside the main stats via `Promise.allSettled`, so a failure there doesn't block the rest of the page — see [`docs/DESIGN.md`](../../docs/DESIGN.md#ai-suggest-subtasks--ai-standup-not-real-ai) for why "AI" here is a rule-based summary, not a real model call).
+- **Tasks** (`/tasks`) — paginated, filterable (status + search) task list with an inline "New Task" form, a per-task subtask checklist (add/toggle, with "AI Suggest Subtasks" pre-filling suggestions from the task's title/description via `POST /api/tasks/ai-suggest-subtasks`), and a notes thread per task.
 - **Projects** (`/projects`) — paginated, filterable (category + search) project list with inline create and per-row delete.
+- **Admin** (`/admin`, admin role only) — lists every user with inline edit (name/email/role/password) and delete, plus a "Backup & Restore" panel: download a full JSON database backup, or upload one to replace the entire database (destructive — gated behind typing a confirmation phrase before the button is enabled).
 - **Login** / **Register** — auth forms; `Register` redirects to `/login` on success (see Auth flow above).
 
-Status badges (`StatusBadge`) and their color tones are centralized in `src/claimStatus.ts` and `src/policyMeta.ts` so task/project status coloring stays consistent across dashboard and list views.
+Status badges (`StatusBadge`) and their color tones are centralized in `src/claimStatus.ts` and `src/policyMeta.ts` — the filenames are a holdover from this app's earlier insurance-claims domain and export `TASK_STATUS_*`/`PROJECT_*` constants today, not anything claims/policy-related; they haven't been renamed to match. Both keep task/project status coloring consistent across dashboard and list views.

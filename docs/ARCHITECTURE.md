@@ -85,6 +85,12 @@ sequenceDiagram
     R-->>C: 200 (req.user attached) or 401
 ```
 
+## Authorization
+
+Authentication (who are you) and authorization (what can you do) are deliberately separate layers. `authenticate` runs on every protected route and only checks the token; a second, optional middleware — `authorizeRoles(...roles)` (`src/middleware/auth.ts`) — is chained in after it on the small set of routes that need more than "any logged-in user": `PUT`/`DELETE /api/auth/users/:id` and everything under `/api/admin`, both require `authorizeRoles("admin")`. Everywhere else (all project/task CRUD), any authenticated user can act on any record — there's no per-resource ownership check.
+
+The React client mirrors this with `AdminRoute.tsx`, which redirects a non-admin away from `/admin` before the page even renders, and `Banner.tsx`, which only renders the "Admin" nav link for `user.role === "admin"`. **This is UX, not the security boundary** — the client-side check only hides the button/route; the real enforcement is `authorizeRoles` on the server, which would reject a direct API call from a non-admin regardless of what the UI shows. Both layers use the same `role` value from the same `User` document, so they can't drift out of sync with each other, but they are independent checks, not one relying on the other.
+
 ## End-to-end login data flow
 
 The auth flow above starts at `POST /login` — this traces the same request one layer further out, from the click in the browser down to MongoDB and back, to show how the frontend (`frontend-client/react-ts/`) and this backend fit together across the proxy in between.
@@ -128,9 +134,9 @@ A few things worth calling out at each hop:
 
 Models live in `src/models/` and are plain Mongoose schemas:
 
-- **`User`** — hashes its password in a `pre("save")` hook (bcrypt, 12 rounds) and strips `password` from `toJSON()` output. `role` is one of `admin`/`lead`/`member`, defaulting to `member`.
+- **`User`** — hashes its password in a `pre("save")` hook (bcrypt, 12 rounds) and strips `password` from `toJSON()` output. `role` is one of `admin`/`lead`/`member`, defaulting to `member`, and gates user management and backup/restore (see [Authorization](#authorization) below).
 - **`Project`** — owned by a `User` (`owner` ref); `projectCode` is uppercased/trimmed and unique.
-- **`Task`** — references a `Project` and an optional `assignedTo`/`completedBy` `User`; auto-generates a sequential `taskNumber` (`TSK-1000`, `TSK-1001`, …) in a `pre("save")` hook based on `countDocuments()`, and embeds `notes` as sub-documents (`{ author, text, createdAt }`).
+- **`Task`** — references a `Project` and an optional `assignedTo`/`completedBy` `User`; auto-generates a sequential `taskNumber` (`TSK-1000`, `TSK-1001`, …) in a `pre("save")` hook based on `countDocuments()`, and embeds both `notes` (`{ author, text, createdAt }`) and `subtasks` (`{ text, completed }`, each with its own `_id`) as sub-documents. Completing every subtask auto-marks the task `done`; see [`DESIGN.md`](DESIGN.md#task) for the full reconciliation logic.
 
 See [`DESIGN.md`](DESIGN.md) for the reasoning behind these choices, including an entity-relationship diagram of how the three models relate.
 
@@ -206,7 +212,7 @@ flowchart LR
 
 The Vitest suite (`vitest.config.mts`) splits into two kinds of tests:
 
-- **Pure unit tests** — no database: `generateToken`/`getTokenTimestamps`, the `validate` and `errorHandler` middleware, and `authenticate` (with the `User` model mocked via `vi.mock`, so no real lookup happens).
-- **DB-backed tests** — `User` and `Task` model tests (since their behavior — password hashing, task-number generation — only fires on `.save()`), plus a full `api.integration.test.ts` that exercises the routes end-to-end (`supertest` against `createApp()`) for auth, projects, and tasks. These connect to a dedicated `task-tracker-test` MongoDB database via `src/test/db.ts` helpers, cleared between tests. There is no dedicated `Project` model test file — its behavior is covered indirectly through the integration tests instead.
+- **Pure unit tests** — no database: `generateToken`/`getTokenTimestamps`, the `validate` and `errorHandler` middleware, `authenticate` (with the `User` model mocked via `vi.mock`, so no real lookup happens), and `formatTaskLabel` (the AI standup summary's label-formatting helper, `src/routes/__tests__/dashboard.test.ts`).
+- **DB-backed tests** — `User` and `Task` model tests (since their behavior — password hashing, task-number generation — only fires on `.save()`), plus a full `api.integration.test.ts` that exercises the routes end-to-end (`supertest` against `createApp()`) for auth (including admin-only user management), projects, tasks (including subtasks and the AI-suggest endpoint), dashboard (including `ai-standup`), and admin backup/restore. These connect to a dedicated `task-tracker-test` MongoDB database via `src/test/db.ts` helpers, cleared between tests. There is no dedicated `Project` model test file — its behavior is covered indirectly through the integration tests instead.
 
 Because the DB-backed tests share one real external database, `vitest.config.mts` sets `fileParallelism: false` — running test files concurrently was observed to race one file's cleanup (`afterEach`) against another file's in-progress assertions, producing a flaky duplicate-key test. Running files sequentially trades a small amount of speed for determinism.
