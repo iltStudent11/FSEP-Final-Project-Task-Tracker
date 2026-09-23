@@ -99,8 +99,8 @@ export default function Admin() {
         });
 
         if (!cancelled) {
-          setAuditLogs(response.data.logs);
-          setAuditTotalPages(response.data.pagination.pages);
+          setAuditLogs(Array.isArray(response.data?.logs) ? response.data.logs : []);
+          setAuditTotalPages(response.data?.pagination?.pages ?? 1);
         }
       } catch (err) {
         if (!cancelled) {
