@@ -137,6 +137,7 @@ describe("API integration", () => {
           name: "Updated Member",
           email: "updated-member@example.com",
           role: "lead",
+          password: "UpdatedPassword123!",
         });
 
       expect(response.status).toBe(200);
@@ -144,6 +145,24 @@ describe("API integration", () => {
       expect(response.body.user.email).toBe("updated-member@example.com");
       expect(response.body.user.role).toBe("lead");
       expect(response.body.user.password).toBeUndefined();
+
+      const logsRes = await request(app)
+        .get("/api/audit?eventType=action")
+        .set("Authorization", "Bearer " + token);
+
+      expect(logsRes.status).toBe(200);
+      expect(
+        logsRes.body.logs.find(
+          (log: {
+            action: string;
+            targetId?: string;
+            details?: { body?: { password?: string } };
+          }) =>
+            log.action === `PUT /api/auth/users/${member._id}` &&
+            log.targetId === member._id.toString() &&
+            log.details?.body?.password === "[REDACTED]",
+        ),
+      ).toBeDefined();
     });
 
     it("allows admin to delete a user", async () => {

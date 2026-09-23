@@ -16,6 +16,21 @@ function targetTypeForPath(path: string): string | undefined {
   return undefined;
 }
 
+function resolveTargetId(params: Request["params"]): string | undefined {
+  const values = Object.values(params);
+
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    const value = values[index];
+    const targetId = Array.isArray(value) ? value[0] : value;
+
+    if (typeof targetId === "string" && targetId) {
+      return targetId;
+    }
+  }
+
+  return undefined;
+}
+
 export function trackAuditActions(req: Request, res: Response, next: NextFunction): void {
   const method = req.method.toUpperCase();
   const path = req.path;
@@ -29,7 +44,7 @@ export function trackAuditActions(req: Request, res: Response, next: NextFunctio
     if (res.statusCode >= 400 || !req.user) return;
 
     const targetType = targetTypeForPath(path);
-    const targetId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const targetId = resolveTargetId(req.params);
 
     void logAuditEvent({
       req,
