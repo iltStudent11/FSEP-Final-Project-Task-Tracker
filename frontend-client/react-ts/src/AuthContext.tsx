@@ -54,11 +54,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(() => {
+    const currentToken = token ?? localStorage.getItem(TOKEN_STORAGE_KEY);
+
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     localStorage.removeItem(USER_STORAGE_KEY);
     setToken(null);
     setUser(null);
-  }, []);
+
+    if (currentToken) {
+      void api
+        .post(
+          "/auth/logout",
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${currentToken}`,
+            },
+          },
+        )
+        .catch(() => null);
+    }
+  }, [token]);
 
   return (
     <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>

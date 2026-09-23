@@ -137,6 +137,7 @@ describe("API integration", () => {
           name: "Updated Member",
           email: "updated-member@example.com",
           role: "lead",
+          password: "UpdatedPassword123!",
         });
 
       expect(response.status).toBe(200);
@@ -144,6 +145,24 @@ describe("API integration", () => {
       expect(response.body.user.email).toBe("updated-member@example.com");
       expect(response.body.user.role).toBe("lead");
       expect(response.body.user.password).toBeUndefined();
+
+      const logsRes = await request(app)
+        .get("/api/audit?eventType=action")
+        .set("Authorization", "Bearer " + token);
+
+      expect(logsRes.status).toBe(200);
+      expect(
+        logsRes.body.logs.find(
+          (log: {
+            action: string;
+            targetId?: string;
+            details?: { body?: { password?: string } };
+          }) =>
+            log.action === `PUT /api/auth/users/${member._id}` &&
+            log.targetId === member._id.toString() &&
+            log.details?.body?.password === "[REDACTED]",
+        ),
+      ).toBeDefined();
     });
 
     it("allows admin to delete a user", async () => {
@@ -220,6 +239,76 @@ describe("API integration", () => {
 
       expect(response.status).toBe(403);
       expect(response.body.message).toBe("Forbidden: insufficient permissions");
+    });
+
+    it("records login and logout in audit logs visible to admins", async () => {
+      const registerRes = await request(app).post("/api/auth/register").send({
+        name: "Audit Admin",
+        email: "audit-admin@example.com",
+        password: "Password123!",
+        role: "admin",
+      });
+      expect(registerRes.status).toBe(201);
+
+      const loginRes = await request(app).post("/api/auth/login").send({
+        email: "audit-admin@example.com",
+        password: "Password123!",
+      });
+      expect(loginRes.status).toBe(200);
+
+      const token = loginRes.body.token as string;
+
+      const logoutRes = await request(app)
+        .post("/api/auth/logout")
+        .set("Authorization", `Bearer ${token}`);
+      expect(logoutRes.status).toBe(200);
+
+      const logsRes = await request(app)
+        .get("/api/audit?eventType=auth")
+        .set("Authorization", `Bearer ${token}`);
+
+      expect(logsRes.status).toBe(200);
+      const actions = logsRes.body.logs.map((log: { action: string }) => log.action);
+      expect(actions).toEqual(expect.arrayContaining(["User login", "User logout"]));
+    });
+
+    it("records tab visits and restricts audit log list to admins", async () => {
+      const { token: adminToken } = await createAuthenticatedUser("audit-admin-list@example.com");
+
+      await request(app).post("/api/auth/register").send({
+        name: "Member Audit",
+        email: "member-audit@example.com",
+        password: "Password123!",
+        role: "member",
+      });
+      const memberLogin = await request(app).post("/api/auth/login").send({
+        email: "member-audit@example.com",
+        password: "Password123!",
+      });
+      const memberToken = memberLogin.body.token as string;
+
+      const eventRes = await request(app)
+        .post("/api/audit/events")
+        .set("Authorization", `Bearer ${memberToken}`)
+        .send({ tab: "Projects", path: "/projects" });
+      expect(eventRes.status).toBe(201);
+
+      const adminLogsRes = await request(app)
+        .get("/api/audit?eventType=navigation")
+        .set("Authorization", `Bearer ${adminToken}`);
+      expect(adminLogsRes.status).toBe(200);
+      expect(
+        adminLogsRes.body.logs.some(
+          (log: { action: string; details?: { tab?: string } }) =>
+            log.action === "Visited tab: Projects" && log.details?.tab === "Projects",
+        ),
+      ).toBe(true);
+
+      const memberLogsRes = await request(app)
+        .get("/api/audit")
+        .set("Authorization", `Bearer ${memberToken}`);
+      expect(memberLogsRes.status).toBe(403);
+      expect(memberLogsRes.body.message).toBe("Forbidden: insufficient permissions");
     });
   });
 
