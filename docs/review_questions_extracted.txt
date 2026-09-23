@@ -1,0 +1,171 @@
+Capstone Project Review Questions & Sample
+Answers
+Student preparation guide for project presentation, live demo, and Q&A
+How to use this guide: Review these questions before presentation day. The sample answers are
+models only. Replace them with accurate details from your team's actual implementation and be
+prepared to explain the system in your own words.
+
+1. What problem does your project solve?
+Sample answer: Our project provides an insurance application where customers can register, log in, view their
+dashboard, and work with policies and claims. We designed the application to demonstrate an end-to-end
+full-stack solution.
+
+2. What were the main objectives of your project?
+Sample answer: Our objectives were to build a working frontend, create REST APIs, persist information in
+MongoDB, implement authentication and authorization, integrate the different application layers, and demonstrate
+the complete solution.
+
+3. Explain your application's architecture.
+Sample answer: Our application uses a three-tier architecture. React provides the frontend, Node.js and Express
+provide the backend REST API, and MongoDB provides persistent storage. The browser communicates with the
+backend through HTTP requests and JSON responses.
+
+4. Walk us through a request from React to MongoDB and back.
+Sample answer: A user performs an action in React. React sends an HTTP request to an Express API endpoint.
+The request passes through middleware such as authentication and validation. The backend processes the
+request and communicates with MongoDB. The result is returned as JSON, and React updates the user interface.
+
+5. What is the role of React in your application?
+Sample answer: React provides the user interface. We divided the UI into reusable components and used React
+features such as props, state, hooks, forms, routing, and API integration.
+
+6. Why did you use Node.js and Express?
+Sample answer: Node.js provides the JavaScript runtime for our backend. Express simplifies creating API routes,
+middleware, request processing, and HTTP responses.
+
+7. What is MongoDB's role?
+Sample answer: MongoDB provides persistent data storage. We use collections to store application information
+such as users, policies, and claims.
+
+8. What happens when a user logs in?
+Sample answer: The frontend sends the credentials to the login API. The backend validates them. After
+successful authentication, the server generates a JWT. The client then includes that token when accessing
+protected API endpoints.
+
+Capstone Project Presentation - Student Review Guide
+
+Page 1
+
+9. What is JWT and why did you use it?
+Sample answer: JWT stands for JSON Web Token. We use it to represent an authenticated session when the
+client accesses protected backend resources.
+
+10. What happens if an unauthenticated user calls a protected API?
+Sample answer: Authentication middleware checks the request. If the required token is missing or invalid, the
+server rejects the request, typically with an HTTP 401 response.
+
+11. What middleware does your application use?
+Sample answer: Depending on the route, our middleware handles JSON request processing, validation,
+authentication, authorization, CORS, logging, and error handling.
+
+12. Explain one CRUD operation end to end.
+Sample answer: When a user creates a policy, React collects the form information and sends a POST request.
+Express routes the request to the appropriate backend logic. After validation and authorization, the policy is saved
+to MongoDB. The server returns the result, and React displays the new policy.
+
+13. What HTTP methods did you use?
+Sample answer: We generally use GET to retrieve resources, POST to create resources, PUT or PATCH to
+update them, and DELETE to remove them.
+
+14. What HTTP status codes should your application return?
+Sample answer: Common examples include 200 for a successful request, 201 when a resource is created, 400
+for an invalid request, 401 for authentication failure, 403 when access is not permitted, 404 when a resource
+cannot be found, and 500 for an unexpected server error.
+
+15. How did you validate user input?
+Sample answer: We perform appropriate validation before accepting data. Backend validation is particularly
+important because frontend validation alone cannot be trusted to protect an API.
+
+16. How do you handle errors?
+Sample answer: The backend returns appropriate HTTP status codes and error information. The frontend
+catches failed API requests and provides meaningful feedback instead of simply failing.
+
+17. How did you test your APIs?
+Sample answer: We tested endpoints independently using an API testing tool and also tested them through the
+React application. Browser DevTools helped us inspect requests, headers, status codes, and responses.
+
+18. How can you prove that data is actually being stored in MongoDB?
+Sample answer: During the demo, we can create or update information through the application and then inspect
+the corresponding MongoDB collection to verify that the document was persisted.
+
+19. How did Git help your team?
+Sample answer: Git provided version control. Team members could work on branches, commit changes, review
+changes, merge work, and maintain a history of the project.
+
+Capstone Project Presentation - Student Review Guide
+
+Page 2
+
+20. What does npm do in your project?
+Sample answer: npm manages our JavaScript dependencies and provides scripts for common activities such as
+installing packages, starting the application, running tests, and building the project.
+
+21. What was one significant technical challenge?
+Sample answer: One challenge was receiving HTTP 401 responses from protected APIs. We inspected the
+browser Network tab and discovered that the JWT was not being included correctly in the Authorization header.
+We corrected the API request and retested the protected endpoint.
+
+22. How did your team troubleshoot problems?
+Sample answer: We tried to isolate each problem by layer. We checked the browser console and Network tab,
+tested the API independently, reviewed backend logs, inspected MongoDB, corrected the problem, and then
+retested the complete workflow.
+
+23. What did you know before the project compared with what you know now?
+Sample answer: Before the project, we understood many of these technologies individually at a conceptual level.
+After completing the project, we can explain how React, REST APIs, Express, middleware, authentication, and
+MongoDB work together as one application.
+
+24. What is the most important thing you learned from the project?
+Sample answer: One major learning was understanding the complete application flow. We can now trace a user
+action from the React component through HTTP, middleware, backend processing, MongoDB, and back to the UI.
+
+25. What part of the project best demonstrates that you applied what you learned?
+Sample answer: Our end-to-end workflow demonstrates this well because it combines frontend development,
+API design, authentication, validation, database persistence, error handling, and testing rather than demonstrating
+each technology separately.
+
+26. Why should we believe this is more than just code that happens to work?
+Sample answer: Because we can explain the architecture, trace requests through the system, explain our design
+decisions, demonstrate the APIs independently, verify the data in MongoDB, discuss problems we encountered,
+and explain how we solved them.
+
+27. If you had another week, what would you improve?
+Sample answer: We would focus on areas such as automated testing, stronger validation, security
+improvements, UI/UX enhancements, monitoring, CI/CD, and deployment improvements rather than simply
+adding more features.
+
+28. What would happen if MongoDB became unavailable?
+Sample answer: Database-dependent operations would fail. The backend should catch the database error,
+return an appropriate error response, log useful diagnostic information, and avoid exposing sensitive
+implementation details to the client.
+
+29. Why shouldn't React communicate directly with MongoDB?
+Sample answer: The backend provides an important security and business-logic boundary. It controls
+authentication, authorization, validation, business rules, database access, and error handling. Direct
+browser-to-database access would bypass those controls.
+
+Capstone Project Presentation - Student Review Guide
+
+Page 3
+
+30. Can you explain your entire project in 30 seconds?
+Sample answer: Our team built a full-stack web application using React for the frontend, Node.js and Express for
+REST APIs, and MongoDB for persistence. We implemented key business workflows, authentication, validation,
+and error handling. The project helped us move from understanding individual technologies to understanding and
+building an integrated application.
+
+Five Questions Every Student Should Be Ready to Answer
+1. What did we build?
+2. How does it work?
+3. What did I personally contribute?
+4. What problem did we encounter and solve?
+5. What can I do now that I could not do before this training/project?
+Presentation goal: Show evidence that you learned, applied, troubleshot, and can explain what you built. A
+successful presentation connects the working application to the knowledge and skills developed during the
+training program.
+
+Capstone Project Presentation - Student Review Guide
+
+Page 4
+
+
