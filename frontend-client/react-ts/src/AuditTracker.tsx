@@ -18,10 +18,12 @@ export default function AuditTracker() {
   useEffect(() => {
     if (!user || !token) return;
 
-    void api.post("/audit/events", {
-      tab: tabName(location.pathname),
-      path: location.pathname,
-    });
+    void api
+      .post("/audit/events", {
+        tab: tabName(location.pathname),
+        path: location.pathname,
+      })
+      .catch(() => null);
   }, [location.pathname, token, user]);
 
   return null;
